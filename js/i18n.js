@@ -1,5 +1,17 @@
 // Arabic / English UI text. Add a key to both languages.
 const ar = {
+  "backup_title": "النسخ الاحتياطي",
+  "backup_desc": "بينزّل كل بيانات السيستم على الجهاز ده: الموظفين، والحسابات، والطلبات، والفلوس، والمخزن، والإعدادات.",
+  "backup_last": "آخر نسخة: {at} (من {d} يوم)",
+  "backup_never": "لسه متعملتش ولا نسخة احتياطية.",
+  "backup_progress": "بيتحمّل {done} من {total} سطر… ({tbl})",
+  "backup_ok": "النسخة نزلت ({n} سطر). احفظها في مكان آمن.",
+  "backup_excel": "نسخة Excel",
+  "backup_json": "نسخة كاملة (JSON)",
+  "backup_keep": "اعمل نسخة كل أسبوع على الأقل، وارفعها على Google Drive أو ابعتها لنفسك. نسخة Excel تتفتح وتتقري. النسخة الكاملة (JSON) هي اللي بنرجّع منها البيانات لو حصلت مشكلة.",
+  "backup_banner_title": "النسخ الاحتياطي:",
+  "backup_banner_old": "آخر نسخة من {d} يوم. دوس هنا واعمل نسخة جديدة.",
+  "backup_banner_never": "لسه متعملتش ولا نسخة. دوس هنا واعمل أول نسخة.",
   "machine_btn": "من الماكينة",
   "machine_title": "مشروب من ماكينة القهوة",
   "machine_hint": "للمشروب اللي مش موجود في البوفيه: بتنزل تجيبه من الماكينة بفلوس البوفيه. سعره بيتسجل على الشخص، وبيتخصم من كاش البوفيه.",
@@ -157,6 +169,18 @@ const ar = {
 };
 
 const en = {
+  "backup_title": "Backup",
+  "backup_desc": "Downloads all system data to this device: people, accounts, orders, cash, stock and settings.",
+  "backup_last": "Last backup: {at} ({d} days ago)",
+  "backup_never": "No backup has been made yet.",
+  "backup_progress": "Loading {done} of {total} rows… ({tbl})",
+  "backup_ok": "Backup downloaded ({n} rows). Keep it somewhere safe.",
+  "backup_excel": "Excel backup",
+  "backup_json": "Full backup (JSON)",
+  "backup_keep": "Back up at least weekly and store the file in Google Drive or send it to yourself. The Excel file is readable; the full JSON file is what we restore from if something goes wrong.",
+  "backup_banner_title": "Backup:",
+  "backup_banner_old": "last backup {d} days ago. Tap here to make a new one.",
+  "backup_banner_never": "no backup yet. Tap here to make the first one.",
   "machine_btn": "Coffee machine",
   "machine_title": "Drink from the coffee machine",
   "machine_hint": "For a drink the buffet doesn't make: bought from the machine with buffet cash. The price is charged to the person and taken from the buffet cash.",
