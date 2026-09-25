@@ -15,12 +15,24 @@ import { materialsPage } from './pages/materials.js';
 import { catalogPage } from './pages/catalog.js';
 import { addonsPage } from './pages/addons.js';
 import { masterPage } from './pages/master.js';
+import { posPage } from './pages/pos.js';
+import { queuePage } from './pages/queue.js';
+import { ordersPage } from './pages/orders.js';
+import { receptionPage } from './pages/reception.js';
+import { customersPage } from './pages/customers.js';
+import { closingPage } from './pages/closing.js';
 
 const app = document.getElementById('app');
 
 // ---------- Routes ----------
 const ROUTES = {
   'home':          { title: 'nav.home',      perms: null,                     render: homePage },
+  'pos':           { title: 'nav.pos',       perms: ['pos.create_order'],     render: posPage },
+  'queue':         { title: 'nav.queue',     perms: ['orders.queue'],         render: queuePage },
+  'orders':        { title: 'nav.orders',    perms: ['orders.view'],          render: ordersPage },
+  'reception':     { title: 'nav.reception', perms: ['accounts.deposit', 'payments.receive'], render: receptionPage },
+  'customers':     { title: 'nav.customers', perms: ['customers.manage', 'accounts.view'], render: customersPage },
+  'closing':       { title: 'nav.closing',   perms: ['closing.perform'],      render: closingPage },
   'stock':         { title: 'nav.stock',     perms: ['inventory.view'],       render: stockPage },
   'docs/purchase': { title: 'nav.purchase',  perms: ['inventory.purchase'],   render: (r) => docFormPage(r, 'PURCHASE') },
   'docs/transfer': { title: 'nav.transfer',  perms: ['inventory.transfer'],   render: (r) => docFormPage(r, 'TRANSFER') },
@@ -38,6 +50,7 @@ const ROUTES = {
 
 const NAV = [
   { title: null,               items: ['home'] },
+  { title: 'nav.g.sales',      items: ['pos', 'queue', 'reception', 'orders', 'customers', 'closing'] },
   { title: 'nav.g.inventory',  items: ['stock', 'docs/purchase', 'docs/transfer', 'docs/issue', 'docs/waste', 'counts', 'docs', 'movements', 'materials'] },
   { title: 'nav.g.catalog',    items: ['catalog', 'addons'] },
   { title: 'nav.g.settings',   items: ['master', 'docs/opening'] },
@@ -179,6 +192,7 @@ async function route() {
   if (!session.profile || !shellEls) return;
   let key = location.hash.replace(/^#\/?/, '') || 'home';
   if (!allowed(key)) key = 'home';
+  document.querySelector('.shell')?.classList.remove('nav-open');
   const r = ROUTES[key];
   shellEls.nav.querySelectorAll('a').forEach((a) => a.classList.toggle('active', a.dataset.route === key));
   shellEls.title.textContent = t(r.title);

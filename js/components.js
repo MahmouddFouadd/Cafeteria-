@@ -33,8 +33,8 @@ export function itemsEditor(opts = {}) {
       h('option', { value: '' }, t('choose_material')),
       materials().map((m) => h('option', { value: m.id }, `${nm(m)} — ${m.code}`)));
     const unitSel = h('select', { class: 'input', 'aria-label': t('unit') });
-    const qtyIn = input({ type: 'number', step: 'any', inputmode: 'decimal', min: allowNegative ? null : '0', 'aria-label': t('qty') });
-    const costIn = withCost ? input({ type: 'number', step: 'any', min: '0', inputmode: 'decimal', 'aria-label': t('unit_cost') }) : null;
+    const qtyIn = input({ type: 'number', step: 'any', inputmode: 'decimal', min: allowNegative ? null : '0', 'aria-label': t('qty'), placeholder: t('qty') });
+    const costIn = withCost ? input({ type: 'number', step: 'any', min: '0', inputmode: 'decimal', 'aria-label': t('unit_cost'), placeholder: t('unit_cost') }) : null;
     const info = h('div', { class: 'muted small' });
     const lineEl = showTotal ? h('td', { class: 'num' }) : null;
     const tr = h('tr', null,

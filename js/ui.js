@@ -23,7 +23,8 @@ function append(el, kids) {
   for (const k of kids) {
     if (k == null || k === false) continue;
     if (Array.isArray(k)) append(el, k);
-    else el.append(k instanceof Node ? k : document.createTextNode(String(k)));
+    else if (k instanceof Node) el.append(k);
+    else if (k !== '') el.append(document.createTextNode(String(k)));
   }
 }
 export const clear = (el) => { el.replaceChildren(); return el; };
@@ -133,16 +134,16 @@ export function confirmDialog(message, { title = t('confirm'), okLabel = t('conf
 
 // ---------- Tables ----------
 /** columns: [{ key, label, render?(row), num?, x?(row) for export }] */
-export function dataTable(columns, rows, { empty, onRowClick, rowClass } = {}) {
+export function dataTable(columns, rows, { empty, onRowClick, rowClass, noCards = false } = {}) {
   if (!rows.length) return h('div', { class: 'empty' }, empty || t('no_data'));
   return h('div', { class: 'table-wrap' },
-    h('table', { class: 'tbl' },
+    h('table', { class: 'tbl' + (noCards ? '' : ' tbl-cards') },
       h('thead', null, h('tr', null, columns.map((c) => h('th', { class: c.num ? 'num' : '' }, c.label)))),
       h('tbody', null, rows.map((r) =>
         h('tr', {
           class: [onRowClick ? 'clickable' : '', rowClass ? rowClass(r) : ''].join(' ').trim() || null,
           onclick: onRowClick ? () => onRowClick(r) : null,
-        }, columns.map((c) => h('td', { class: c.num ? 'num' : '' }, c.render ? c.render(r) : r[c.key])))))));
+        }, columns.map((c) => h('td', { class: c.num ? 'num' : '', 'data-label': typeof c.label === 'string' ? c.label : '' }, c.render ? c.render(r) : r[c.key])))))));
 }
 
 const textOf = (v) => (v instanceof Node ? v.textContent : v);
