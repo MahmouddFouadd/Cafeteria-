@@ -142,58 +142,50 @@ export async function posPage(root) {
     }
     const modes = canCash ? ['ACCOUNT', 'CASH', 'MIXED'] : ['ACCOUNT'];
     payBox.append(h('div', { class: 'seg' }, modes.map((md) => h('button', {
-      type: 'button', class: st.payMode === md ? 'on' : '', onclick: () => { st.payMode = md; renderPay(); },
+      type: 'button', class: st.payMode === md ? 'on' : '', onclick: () => { st.payMode = md; st.cashRecv = ''; st.extraMode = null; renderPay(); },
     }, t('pay.' + md)))));
-    let cashPart = st.payMode === 'CASH' ? tot : 0;
-    if (st.payMode === 'CASH') {
-      // Amount actually handed over; anything above the total can go to the employee's account
-      const recv = input({ type: 'number', step: '0.01', min: '0', inputmode: 'decimal', value: st.cashRecv, placeholder: fmtMoney(tot) });
-      const extraBox = h('div', { class: 'extra-box' });
-      const drawExtra = () => {
-        const r = st.cashRecv === '' ? tot : Number(st.cashRecv) || 0;
-        const extra = r - tot;
-        const bal = Number(st.customer.balance);
-        clear(extraBox);
-        if (r < tot) {
-          extraBox.append(h('div', { class: 'small' }, `${t('from_account')}: ${fmtMoney(tot - r)} — ${t('balance_after')}: `, balanceBlock(bal - (tot - r))));
-          return;
-        }
-        if (extra <= 0) return;
-        if (!st.extraMode) st.extraMode = bal < 0 ? 'ACCOUNT' : 'CHANGE';
-        extraBox.append(
-          h('div', { class: 'muted small' }, t('extra_cash', { v: fmtMoney(extra) })),
-          h('div', { class: 'seg sm' }, ['ACCOUNT', 'CHANGE'].map((md) => h('button', {
-            type: 'button', class: st.extraMode === md ? 'on' : '', onclick: () => { st.extraMode = md; drawExtra(); },
-          }, t('extra.' + md)))));
-        if (st.extraMode === 'ACCOUNT') {
-          const nb = bal + extra;
-          const pays = bal < 0 ? Math.min(extra, -bal) : 0;
-          extraBox.append(h('div', { class: 'small' },
-            pays > 0 ? t('extra_pays_debt', { v: fmtMoney(pays) }) + ' — ' : '',
-            `${t('balance_after')}: `, balanceBlock(nb)));
-        } else {
-          extraBox.append(h('div', { class: 'small' }, `${t('change_due')}: ${fmtMoney(extra)}`));
-        }
-      };
-      recv.oninput = () => { st.cashRecv = recv.value; drawExtra(); };
-      payBox.append(field(t('cash_received'), recv), extraBox);
-      drawExtra();
+    // CASH: default = the total; MIXED: default = 0 (the rest goes on the account).
+    // Either way, cash above the total can go to the employee's account or back as change.
+    const recv = input({ type: 'number', value: st.cashRecv, placeholder: st.payMode === 'CASH' ? fmtMoney(tot) : '0' });
+    const extraBox = h('div', { class: 'extra-box' });
+    const drawExtra = () => {
+      const r = received(tot);
+      const extra = r - tot;
+      const bal = Number(st.customer.balance);
+      clear(extraBox);
+      if (r < tot) {
+        extraBox.append(h('div', { class: 'small' }, `${t('from_account')}: ${fmtMoney(tot - r)} — ${t('balance_after')}: `, balanceBlock(bal - (tot - r))));
+        return;
+      }
+      if (extra <= 0) return;
+      if (!st.extraMode) st.extraMode = bal < 0 ? 'ACCOUNT' : 'CHANGE';
+      extraBox.append(
+        h('div', { class: 'muted small' }, t('extra_cash', { v: fmtMoney(extra) })),
+        h('div', { class: 'seg sm' }, ['ACCOUNT', 'CHANGE'].map((md) => h('button', {
+          type: 'button', class: st.extraMode === md ? 'on' : '', onclick: () => { st.extraMode = md; drawExtra(); },
+        }, t('extra.' + md)))));
+      if (st.extraMode === 'ACCOUNT') {
+        const pays = bal < 0 ? Math.min(extra, -bal) : 0;
+        extraBox.append(h('div', { class: 'small' },
+          pays > 0 ? t('extra_pays_debt', { v: fmtMoney(pays) }) + ' — ' : '',
+          `${t('balance_after')}: `, balanceBlock(bal + extra)));
+      } else {
+        extraBox.append(h('div', { class: 'small' }, `${t('change_due')}: ${fmtMoney(extra)}`));
+      }
+    };
+    if (st.payMode === 'ACCOUNT') {
+      const nb = Number(st.customer.balance) - tot;
+      payBox.append(h('div', { class: 'small' }, `${t('from_account')}: ${fmtMoney(tot)} — ${t('balance_after')}: `, balanceBlock(nb)));
       return;
     }
-    if (st.payMode === 'MIXED') {
-      const cashIn = input({ type: 'number', step: '0.01', min: '0', inputmode: 'decimal', value: st.cashIn });
-      cashIn.oninput = () => { st.cashIn = cashIn.value; after(); };
-      payBox.append(field(t('cash_part'), cashIn));
-    }
-    const afterEl = h('div', { class: 'small' });
-    payBox.append(afterEl);
-    function after() {
-      if (st.payMode === 'MIXED') cashPart = Math.min(Number(st.cashIn) || 0, tot);
-      const acc = tot - cashPart;
-      const nb = Number(st.customer.balance) - acc;
-      afterEl.replaceChildren(acc > 0 ? h('div', null, `${t('from_account')}: ${fmtMoney(acc)} — ${t('balance_after')}: `, balanceBlock(nb)) : '');
-    }
-    after();
+    recv.addEventListener('input', () => { st.cashRecv = recv.value; drawExtra(); });
+    payBox.append(field(st.payMode === 'CASH' ? t('cash_received') : t('cash_part'), recv), extraBox);
+    drawExtra();
+  }
+
+  function received(tot) {
+    if (st.cashRecv === '' || st.cashRecv == null) return st.payMode === 'CASH' ? tot : 0;
+    return Math.max(Number(st.cashRecv) || 0, 0);
   }
 
   function pulse() { mobileBar.classList.remove('pulse'); void mobileBar.offsetWidth; mobileBar.classList.add('pulse'); }
@@ -206,9 +198,8 @@ export async function posPage(root) {
     if (st.guest) {
       cash = st.cashIn === '' ? tot : Number(st.cashIn);
       if (cash < tot) { toast(t('cash_not_enough'), 'warn'); return; }
-    } else if (st.payMode === 'CASH') cash = st.cashRecv === '' ? tot : Math.max(Number(st.cashRecv) || 0, 0);
-    else if (st.payMode === 'MIXED') cash = Math.min(Number(st.cashIn) || 0, tot);
-    const extraToAccount = !st.guest && st.payMode === 'CASH' && cash > tot && st.extraMode === 'ACCOUNT';
+    } else if (st.payMode === 'CASH' || st.payMode === 'MIXED') cash = received(tot);
+    const extraToAccount = !st.guest && st.payMode !== 'ACCOUNT' && cash > tot && st.extraMode === 'ACCOUNT';
 
     const items = st.cart.map((l) => ({ variant_id: l.variant.id, qty: l.qty, addons: l.addons.map((a) => a.id), notes: l.notes || null }));
     try {
@@ -216,7 +207,7 @@ export async function posPage(root) {
         p_items: items, p_customer_id: st.customer?.id ?? null, p_guest_name: st.guest ? (st.guestName.trim() || null) : null,
         p_cash: cash, p_notes: null, p_idempotency_key: st.key, p_extra_to_account: extraToAccount,
       });
-      const change = (st.guest || (st.payMode === 'CASH' && !extraToAccount)) ? Math.max(cash - tot, 0) : 0;
+      const change = (st.guest || (st.payMode !== 'ACCOUNT' && !extraToAccount)) ? Math.max(cash - tot, 0) : 0;
       toast(t('order_created', { no: res.order_no }), 'ok', 6000);
       put(resultBox, h('div', { class: 'alert ok-soft' },
         h('b', null, t('order_created', { no: res.order_no })),
