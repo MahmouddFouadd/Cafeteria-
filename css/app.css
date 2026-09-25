@@ -512,3 +512,11 @@ h3.sub { font-size: 15px; margin: 0 0 8px; color: var(--muted); font-weight: 600
   .quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media screen and (max-width: 720px) { .tbl-cards td:empty { display: none; } }
+
+/* Quick-add employee from the search box */
+.quick-add { border: 1px dashed var(--primary); border-radius: var(--radius-lg); padding: 12px; display: grid; gap: 10px; background: var(--surface); }
+.qa-title { font-weight: 700; }
+.qa-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.qa-depts { flex-wrap: wrap; }
+.quick-add .form-actions { margin: 0; }
+@media (max-width: 560px) { .qa-grid { grid-template-columns: 1fr; } }
