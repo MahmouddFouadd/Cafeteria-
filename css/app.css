@@ -646,3 +646,4 @@ a.kpi:hover { border-color: var(--primary); }
   .bars { height: 150px; gap: 3px; }
 }
 .pick-add { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.extra-box { display: grid; gap: 8px; }
