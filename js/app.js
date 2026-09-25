@@ -70,6 +70,7 @@ async function boot() {
     return;
   }
   const { data } = await sb.auth.getSession();
+  if (data.session && idleExpired()) { await signOutNow('idle'); return; }
   if (data.session && await loadProfile()) renderShell();
   else renderLogin();
 }
@@ -148,6 +149,9 @@ function renderLogin() {
 
   const remember = h('input', { type: 'checkbox', checked: !!saved });
   const msg = h('div', { class: 'alert bad', hidden: true, role: 'alert' });
+  let reason = null;
+  try { reason = sessionStorage.getItem(REASON_KEY); sessionStorage.removeItem(REASON_KEY); } catch (_) {}
+  const info = reason === 'idle' ? h('div', { class: 'alert warn', role: 'status' }, t('idle_logged_out', { m: IDLE_MIN })) : null;
   const submit = h('button', { class: 'btn primary lg', type: 'submit' }, t('login'));
   const net = h('span', { class: 'dot ' + (navigator.onLine ? 'on' : 'off') }, navigator.onLine ? t('online') : t('network_off'));
 
@@ -155,7 +159,7 @@ function renderLogin() {
     h('label', { class: 'field', for: 'lg-user' }, h('span', { class: 'label' }, t('username')), user),
     h('label', { class: 'field', for: 'lg-pass' }, h('span', { class: 'label' }, t('password')),
       h('div', { class: 'pw-wrap' }, pass, eye)),
-    caps,
+    caps, info,
     h('label', { class: 'check' }, remember, h('span', null, t('remember_user'))),
     msg, submit);
 
@@ -194,9 +198,33 @@ function renderLogin() {
         form,
         h('div', { class: 'login-foot' },
           net,
-          h('span', { class: 'muted small' }, t('session_note'))),
+          h('span', { class: 'muted small' }, t('session_note', { m: IDLE_MIN }))),
         h('p', { class: 'muted small login-help' }, t('login_help'))))));
   setTimeout(() => (saved ? pass : user).focus(), 60);
+}
+
+// ---------- Auto sign-out after inactivity ----------
+const IDLE_MIN = Number(CONFIG.IDLE_MINUTES) || 30;
+const ACT_KEY = 'cafeteria-last-activity';
+const REASON_KEY = 'cafeteria-logout-reason';
+let idleTimer = null, lastMark = 0;
+const markActive = () => { try { sessionStorage.setItem(ACT_KEY, String(Date.now())); } catch (_) {} };
+const lastActive = () => Number(sessionStorage.getItem(ACT_KEY)) || 0;
+const idleExpired = () => { const la = lastActive(); return la > 0 && Date.now() - la > IDLE_MIN * 60000; };
+function onActivity() { const n = Date.now(); if (n - lastMark > 15000) { lastMark = n; markActive(); } }
+async function signOutNow(reason) {
+  clearInterval(idleTimer);
+  try { if (reason) sessionStorage.setItem(REASON_KEY, reason); sessionStorage.removeItem(ACT_KEY); } catch (_) {}
+  await sb.auth.signOut();
+}
+function checkIdle() { if (session.profile && document.visibilityState === 'visible' && idleExpired()) signOutNow('idle'); }
+function startIdleWatch() {
+  markActive();
+  ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach((ev) => window.addEventListener(ev, onActivity, { passive: true }));
+  document.removeEventListener('visibilitychange', checkIdle);
+  document.addEventListener('visibilitychange', checkIdle);
+  clearInterval(idleTimer);
+  idleTimer = setInterval(checkIdle, 30000);
 }
 
 // ---------- Shell ----------
@@ -224,18 +252,25 @@ function renderShell() {
         h('div', { style: { color: '#A99DC2' } }, lang() === 'en' ? p.role_name_en : p.role_name_ar),
         h('div', { class: 'row' },
           langButton(() => { renderShell(); }),
-          btn(t('logout'), async () => { await sb.auth.signOut(); }, 'sm')))),
+          btn(t('logout'), () => signOutNow(), 'sm')))),
     h('main', { class: 'main' },
       h('div', { class: 'topbar' },
         h('button', { class: 'icon-btn menu-btn', type: 'button', 'aria-label': t('menu'),
           onclick: () => shell.classList.toggle('nav-open') }, '☰'),
-        title),
+        title,
+        h('div', { class: 'top-user' },
+          h('div', { class: 'tu-text' },
+            h('b', null, p.full_name),
+            h('span', null, lang() === 'en' ? p.role_name_en : p.role_name_ar)),
+          h('button', { type: 'button', class: 'btn sm logout-btn', title: t('logout'), onclick: () => signOutNow() },
+            h('span', { class: 'logout-ico', 'aria-hidden': 'true' }, '⎋'), h('span', { class: 'logout-txt' }, t('logout'))))),
       content));
   shell.addEventListener('click', (e) => {
     if (e.target === shell || e.target.closest('.nav a')) shell.classList.remove('nav-open');
   });
   put(app, shell);
   shellEls = { title, content, nav };
+  startIdleWatch();
   route();
 }
 
