@@ -63,7 +63,10 @@ export function customerPicker({ onPick, placeholder, autofocus = false, activeO
           h('div', null, h('b', null, r.full_name), h('span', { class: 'muted small' }, ` ${r.code}${r.department_ar ? ' · ' + (lang() === 'en' && r.department_en ? r.department_en : r.department_ar) : ''}`)),
           balanceBlock(r.balance))));
       } else if (term && canAdd) {
-        put(list, await quickAddForm(term));
+        // Don't open the form while the user is still typing: offer a button instead
+        put(list, h('div', { class: 'pick-empty pick-add' },
+          h('span', { class: 'muted small' }, t('no_customer_found')),
+          btn('+ ' + t('qa_open'), () => openForm(term), 'sm')));
       } else {
         put(list, term ? h('div', { class: 'muted small pick-empty' }, t('no_customer_found')) : null);
       }
@@ -105,9 +108,23 @@ export function customerPicker({ onPick, placeholder, autofocus = false, activeO
       h('div', { class: 'form-actions' }, addBtn));
   }
 
-  function choose(r) { inp.value = ''; clear(list); rows = []; onPick(r); }
-  inp.oninput = () => { clearTimeout(timer); timer = setTimeout(run, 220); };
-  inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); run().then(() => { if (rows.length === 1) choose(rows[0]); }); } };
+  let formOpen = false;
+  async function openForm(term) {
+    formOpen = true;
+    clearTimeout(timer); ++seq;              // stop any pending search from replacing the form
+    put(list, await quickAddForm(term));
+  }
+
+  function choose(r) { inp.value = ''; clear(list); rows = []; formOpen = false; onPick(r); }
+  inp.oninput = () => { formOpen = false; clearTimeout(timer); timer = setTimeout(run, 350); };
+  inp.onkeydown = (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault(); clearTimeout(timer);
+    run().then(() => {
+      if (rows.length === 1) choose(rows[0]);
+      else if (!rows.length && inp.value.trim() && canAdd && !formOpen) openForm(inp.value.trim());
+    });
+  };
   if (autofocus) setTimeout(() => inp.focus(), 60);
   return { el: h('div', { class: 'picker' }, inp, list), input: inp };
 }
