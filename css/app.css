@@ -792,3 +792,15 @@ button, a, .pos-var, .chip, .tab, .pick-item { touch-action: manipulation; }
   .pos-person > h2 { grid-column: 1 / -1; }
   .pos-person > .repeat-box, .pos-person > div:last-child { grid-column: 1 / -1; }
 }
+
+/* ---------- Reception collection ---------- */
+.rec-tabs { margin: 0 0 12px; }
+.dues-summary { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: var(--radius-lg); background: var(--bad-soft, #FBEAEA); margin-bottom: 12px; }
+.ds-big { display: grid; }
+.ds-big b { font-size: 26px; color: var(--bad); }
+.dues-tools { flex-wrap: wrap; gap: 8px; }
+.dues-tools select { width: auto; }
+.bad-text { color: var(--bad); }
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.by-dept { margin-top: 14px; }
+.by-dept summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
