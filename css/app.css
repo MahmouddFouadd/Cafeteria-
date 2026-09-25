@@ -830,3 +830,9 @@ button, a, .pos-var, .chip, .tab, .pick-item { touch-action: manipulation; }
   padding: 12px 16px; border: 0; border-radius: 12px; background: var(--primary); color: #fff;
   font: inherit; font-weight: 700; box-shadow: 0 10px 30px rgba(43, 33, 64, .35); cursor: pointer;
 }
+
+/* ---------- Coffee machine + drawers ---------- */
+.machine-btn { background: #FFF4EC; border-color: #F1C9A8; color: #8A3D12; font-weight: 700; white-space: nowrap; }
+.drawer-title, .handover h3 { font-size: 15px; margin: 16px 0 6px; }
+.handover { border-top: 1px dashed var(--line); margin-top: 14px; padding-top: 6px; display: grid; gap: 8px; }
+.cash-line.neg b { color: var(--bad); }
