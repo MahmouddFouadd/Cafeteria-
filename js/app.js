@@ -3,58 +3,48 @@ import { CONFIG } from './config.js';
 import { t, lang, setLang } from './i18n.js';
 import { h, put, clear, btn, input, field, toast, toastError, busy } from './ui.js';
 import { rpc, errText } from './api.js';
-import { loadRefs, loadSettings, usePrep } from './store.js';
+import { loadRefs, loadSettings, usePrep, invalidate } from './store.js';
 import { session, canAny } from './session.js';
 import { deviceUsers, rememberDeviceUser, forgetDeviceUser, pinPassword } from './pin.js';
 
-import { settingsPage } from './pages/settings.js';
-import { reportsPage } from './pages/reports.js';
-import { mePage } from './pages/me.js';
-import { inventoryPage, INV_KEYS } from './pages/inventory.js';
-import { homePage } from './pages/home.js';
-import { stockPage } from './pages/stock.js';
-import { movementsPage } from './pages/movements.js';
-import { docFormPage, docsListPage } from './pages/docs.js';
-import { countsPage } from './pages/counts.js';
-import { materialsPage } from './pages/materials.js';
-import { catalogPage } from './pages/catalog.js';
-import { addonsPage } from './pages/addons.js';
-import { masterPage } from './pages/master.js';
-import { posPage } from './pages/pos.js';
-import { queuePage } from './pages/queue.js';
-import { ordersPage } from './pages/orders.js';
-import { receptionPage } from './pages/reception.js';
-import { customersPage } from './pages/customers.js';
-import { closingPage } from './pages/closing.js';
+// Pages load on demand (smaller first load); allowed ones are prefetched after sign-in.
+const page = (file, fn, ...args) => {
+  const load = () => import(`./pages/${file}.js`);
+  const render = async (root) => (await load())[fn](root, ...args);
+  render.prefetch = load;
+  return render;
+};
+const INV_KEYS = ['stock', 'docs/purchase', 'docs/transfer', 'docs/issue', 'docs/waste',
+                  'docs/opening', 'counts', 'docs', 'movements', 'materials'];
 
 const app = document.getElementById('app');
 
 // ---------- Routes ----------
 const ROUTES = {
-  'home':          { title: 'nav.home',      perms: null,                     render: homePage },
-  'reports':       { title: 'nav.reports',   perms: ['reports.sales', 'reports.financial', 'reports.inventory', 'reports.cost'], render: reportsPage },
-  'me':            { title: 'nav.me',        perms: null,                     render: mePage },
-  'inventory':     { title: 'nav.inventory', perms: ['inventory.view', 'inventory.purchase', 'inventory.transfer', 'inventory.issue', 'inventory.waste', 'inventory.adjust', 'inventory.materials'], render: inventoryPage },
-  'pos':           { title: 'nav.pos',       perms: ['pos.create_order'],     render: posPage },
-  'queue':         { title: 'nav.queue',     perms: ['orders.queue'],         render: queuePage },
-  'orders':        { title: 'nav.orders',    perms: ['orders.view'],          render: ordersPage },
-  'reception':     { title: 'nav.reception', perms: ['accounts.deposit', 'payments.receive'], render: receptionPage },
-  'customers':     { title: 'nav.customers', perms: ['customers.manage', 'accounts.view'], render: customersPage },
-  'closing':       { title: 'nav.closing',   perms: ['closing.perform'],      render: closingPage },
-  'stock':         { title: 'nav.stock',     perms: ['inventory.view'],       render: stockPage },
-  'docs/purchase': { title: 'nav.purchase',  perms: ['inventory.purchase'],   render: (r) => docFormPage(r, 'PURCHASE') },
-  'docs/transfer': { title: 'nav.transfer',  perms: ['inventory.transfer'],   render: (r) => docFormPage(r, 'TRANSFER') },
-  'docs/issue':    { title: 'nav.issue',     perms: ['inventory.issue'],      render: (r) => docFormPage(r, 'ISSUE') },
-  'docs/waste':    { title: 'nav.waste',     perms: ['inventory.waste'],      render: (r) => docFormPage(r, 'WASTE') },
-  'docs/opening':  { title: 'nav.opening',   perms: ['inventory.adjust'],     render: (r) => docFormPage(r, 'OPENING') },
-  'counts':        { title: 'nav.counts',    perms: ['inventory.adjust'],     render: countsPage },
-  'docs':          { title: 'nav.docs',      perms: ['inventory.view'],       render: docsListPage },
-  'movements':     { title: 'nav.movements', perms: ['inventory.view'],       render: movementsPage },
-  'materials':     { title: 'nav.materials', perms: ['inventory.view', 'inventory.materials'], render: materialsPage },
-  'catalog':       { title: 'nav.catalog',   perms: ['catalog.manage', 'recipes.manage', 'prices.change'], render: catalogPage },
-  'addons':        { title: 'nav.addons',    perms: ['catalog.manage'],       render: addonsPage },
-  'settings':      { title: 'nav.settings',  perms: ['settings.manage'],      render: settingsPage },
-  'master':        { title: 'nav.master',    perms: ['inventory.materials', 'catalog.manage'], render: masterPage },
+  'home':          { title: 'nav.home',      perms: null,                     render: page('home', 'homePage') },
+  'reports':       { title: 'nav.reports',   perms: ['reports.sales', 'reports.financial', 'reports.inventory', 'reports.cost'], render: page('reports', 'reportsPage') },
+  'me':            { title: 'nav.me',        perms: null,                     render: page('me', 'mePage') },
+  'inventory':     { title: 'nav.inventory', perms: ['inventory.view', 'inventory.purchase', 'inventory.transfer', 'inventory.issue', 'inventory.waste', 'inventory.adjust', 'inventory.materials'], render: page('inventory', 'inventoryPage') },
+  'pos':           { title: 'nav.pos',       perms: ['pos.create_order'],     render: page('pos', 'posPage') },
+  'queue':         { title: 'nav.queue',     perms: ['orders.queue'],         render: page('queue', 'queuePage') },
+  'orders':        { title: 'nav.orders',    perms: ['orders.view'],          render: page('orders', 'ordersPage') },
+  'reception':     { title: 'nav.reception', perms: ['accounts.deposit', 'payments.receive'], render: page('reception', 'receptionPage') },
+  'customers':     { title: 'nav.customers', perms: ['customers.manage', 'accounts.view'], render: page('customers', 'customersPage') },
+  'closing':       { title: 'nav.closing',   perms: ['closing.perform'],      render: page('closing', 'closingPage') },
+  'stock':         { title: 'nav.stock',     perms: ['inventory.view'],       render: page('stock', 'stockPage') },
+  'docs/purchase': { title: 'nav.purchase',  perms: ['inventory.purchase'],   render: page('docs', 'docFormPage', 'PURCHASE') },
+  'docs/transfer': { title: 'nav.transfer',  perms: ['inventory.transfer'],   render: page('docs', 'docFormPage', 'TRANSFER') },
+  'docs/issue':    { title: 'nav.issue',     perms: ['inventory.issue'],      render: page('docs', 'docFormPage', 'ISSUE') },
+  'docs/waste':    { title: 'nav.waste',     perms: ['inventory.waste'],      render: page('docs', 'docFormPage', 'WASTE') },
+  'docs/opening':  { title: 'nav.opening',   perms: ['inventory.adjust'],     render: page('docs', 'docFormPage', 'OPENING') },
+  'counts':        { title: 'nav.counts',    perms: ['inventory.adjust'],     render: page('counts', 'countsPage') },
+  'docs':          { title: 'nav.docs',      perms: ['inventory.view'],       render: page('docs', 'docsListPage') },
+  'movements':     { title: 'nav.movements', perms: ['inventory.view'],       render: page('movements', 'movementsPage') },
+  'materials':     { title: 'nav.materials', perms: ['inventory.view', 'inventory.materials'], render: page('materials', 'materialsPage') },
+  'catalog':       { title: 'nav.catalog',   perms: ['catalog.manage', 'recipes.manage', 'prices.change'], render: page('catalog', 'catalogPage') },
+  'addons':        { title: 'nav.addons',    perms: ['catalog.manage'],       render: page('addons', 'addonsPage') },
+  'settings':      { title: 'nav.settings',  perms: ['settings.manage'],      render: page('settings', 'settingsPage') },
+  'master':        { title: 'nav.master',    perms: ['inventory.materials', 'catalog.manage'], render: page('master', 'masterPage') },
 };
 
 const NAV = [
@@ -101,11 +91,11 @@ function netBanner() {
 
 async function loadProfile() {
   try {
-    const p = await rpc('my_profile');
+    // profile, reference data and settings in parallel (one round trip instead of three)
+    const [p] = await Promise.all([rpc('my_profile'), loadRefs(true).catch(() => {}), loadSettings(true).catch(() => {})]);
     if (!p) { await sb.auth.signOut(); toast(t('err.USER_INACTIVE'), 'bad'); return false; }
     session.profile = p;
     if (p.locale && p.locale !== lang() && !localStorage.getItem('lang')) { setLang(p.locale); applyDir(); }
-    await loadRefs(true);
     return true;
   } catch (e) { toastError(e); return false; }
 }
@@ -149,9 +139,9 @@ async function signIn(username, password, { remember = true } = {}) {
   const email = u.includes('@') ? u : `${u}@${CONFIG.EMAIL_DOMAIN}`;
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) return errText(error);
-  try { await rpc('log_login', { p_client: navigator.userAgent.slice(0, 180) }); }
-  catch (e) { await sb.auth.signOut(); return e.message; }
-  if (!(await loadProfile())) return t('err.USER_INACTIVE');
+  const [logged, ok] = await Promise.allSettled([rpc('log_login', { p_client: navigator.userAgent.slice(0, 180) }), loadProfile()]);
+  if (logged.status === 'rejected') { await sb.auth.signOut(); return logged.reason?.message || t('err.USER_INACTIVE'); }
+  if (!ok.value) return t('err.USER_INACTIVE');
   if (remember) rememberDeviceUser(session.profile); else forgetDeviceUser(session.profile.username);
   await loadSettings().catch(() => {});
   location.hash = '#/' + landing();
@@ -388,6 +378,8 @@ function renderShell() {
   shellEls = { title, content, nav, tabs };
   startIdleWatch();
   route();
+  const warm = () => Object.entries(ROUTES).filter(([k]) => allowed(k)).forEach(([, r]) => r.render.prefetch?.().catch(() => {}));
+  (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(warm);
 }
 
 async function route() {
@@ -396,6 +388,7 @@ async function route() {
   if (!allowed(key)) key = 'home';
   document.querySelector('.shell')?.classList.remove('nav-open');
   const r = ROUTES[key];
+  if (key === 'catalog' || key === 'addons') invalidate('pos:');   // menu edits → POS reloads its menu
   const navKey = INV_KEYS.includes(key) ? 'inventory' : key;
   shellEls.nav.querySelectorAll('a').forEach((a) => a.classList.toggle('active', a.dataset.route === navKey));
   shellEls.title.textContent = routeTitle(key);
@@ -403,8 +396,11 @@ async function route() {
   shellEls.tabs?.querySelectorAll('[data-route]').forEach((a) => a.classList.toggle('active', a.dataset.route === navKey));
   const root = clear(shellEls.content);
   if (INV_KEYS.includes(key) && allowed('inventory')) root.append(h('a', { href: '#/inventory', class: 'crumb' }, '→ ' + t('nav.inventory')));
+  const spin = h('div', { class: 'page-loading', 'aria-busy': 'true' }, h('span'), h('span'), h('span'));
+  const spinTimer = setTimeout(() => root.append(spin), 120);
   try { await r.render(root); }
   catch (e) { root.append(h('div', { class: 'alert bad' }, errText(e))); }
+  finally { clearTimeout(spinTimer); spin.remove(); }
 }
 
 window.addEventListener('hashchange', route);

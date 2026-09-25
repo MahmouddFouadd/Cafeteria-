@@ -165,8 +165,20 @@ export function dataTable(columns, rows, { empty, onRowClick, rowClass, noCards 
 
 const textOf = (v) => (v instanceof Node ? v.textContent : v);
 
-export function exportExcel(filename, columns, rows) {
-  if (!window.XLSX) { toast(t('err.EXCEL_LIB'), 'bad'); return; }
+// The Excel library is big (~900 KB), so it is fetched only when someone exports.
+let xlsxLoading = null;
+export function loadXLSX() {
+  if (window.XLSX) return Promise.resolve();
+  xlsxLoading = xlsxLoading || new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = resolve; s.onerror = () => { xlsxLoading = null; reject(new Error('xlsx')); };
+    document.head.append(s);
+  });
+  return xlsxLoading;
+}
+export async function exportExcel(filename, columns, rows) {
+  try { await loadXLSX(); } catch (_) { toast(t('err.EXCEL_LIB'), 'bad'); return; }
   const data = rows.map((r) => Object.fromEntries(columns.map((c) =>
     [c.label, c.x ? c.x(r) : textOf(c.render ? c.render(r) : r[c.key])])));
   const ws = XLSX.utils.json_to_sheet(data);

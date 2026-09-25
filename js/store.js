@@ -62,3 +62,22 @@ export async function saveSetting(k, v) {
   settings.map[k] = v;
   if (k === 'idle_minutes') { try { localStorage.setItem('cafeteria-idle-min', String(v)); } catch (_) {} }
 }
+
+// ---------- In-memory cache: answer instantly, refresh in the background ----------
+const memo = new Map();
+/** Returns a cached value if younger than maxMs (refreshing it in the background once older than freshMs). */
+export async function cachedSWR(key, fn, { freshMs = 60000, maxMs = 600000 } = {}) {
+  const c = memo.get(key);
+  const age = c ? Date.now() - c.at : Infinity;
+  if (c && age < maxMs) {
+    if (age > freshMs && !c.refreshing) {
+      c.refreshing = true;
+      fn().then((val) => memo.set(key, { at: Date.now(), val })).catch(() => { c.refreshing = false; });
+    }
+    return c.val;
+  }
+  const val = await fn();
+  memo.set(key, { at: Date.now(), val });
+  return val;
+}
+export const invalidate = (prefix = '') => { for (const k of [...memo.keys()]) if (k.startsWith(prefix)) memo.delete(k); };
