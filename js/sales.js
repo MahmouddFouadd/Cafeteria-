@@ -37,21 +37,74 @@ export async function loadCustomer(id) {
   return rows[0] || null;
 }
 
-/** Search box with a result list. onPick(customerSummaryRow) */
+/** Search box with a result list. onPick(customerSummaryRow)
+ *  When nothing matches, users with customers.quick_add get an inline form
+ *  to add the employee (and a new department if needed) and pick them at once. */
+let deptCache = null;
+async function departmentsList() {
+  if (!deptCache) deptCache = await q(sb.from('departments').select('id,name_ar,name_en').eq('active', true).order('name_ar'));
+  return deptCache;
+}
+let pickerSeq = 0;
+
 export function customerPicker({ onPick, placeholder, autofocus = false, activeOnly = true }) {
   const inp = input({ type: 'search', placeholder: placeholder || t('customer_search_ph'), autocomplete: 'off', enterkeyhint: 'search' });
   const list = h('div', { class: 'pick-list', role: 'listbox' });
+  const canAdd = can('customers.quick_add') || can('customers.manage');
   let timer = null, rows = [], seq = 0;
   const run = async () => {
     const my = ++seq;
     try {
       rows = await searchCustomers(inp.value, { activeOnly });
       if (my !== seq) return;
-      put(list, rows.length ? rows.map((r) => h('button', { type: 'button', class: 'pick-item', role: 'option', onclick: () => choose(r) },
-        h('div', null, h('b', null, r.full_name), h('span', { class: 'muted small' }, ` ${r.code}${r.department_ar ? ' · ' + (lang() === 'en' && r.department_en ? r.department_en : r.department_ar) : ''}`)),
-        balanceBlock(r.balance))) : (inp.value.trim() ? h('div', { class: 'muted small pick-empty' }, t('no_customer_found')) : null));
+      const term = inp.value.trim();
+      if (rows.length) {
+        put(list, rows.map((r) => h('button', { type: 'button', class: 'pick-item', role: 'option', onclick: () => choose(r) },
+          h('div', null, h('b', null, r.full_name), h('span', { class: 'muted small' }, ` ${r.code}${r.department_ar ? ' · ' + (lang() === 'en' && r.department_en ? r.department_en : r.department_ar) : ''}`)),
+          balanceBlock(r.balance))));
+      } else if (term && canAdd) {
+        put(list, await quickAddForm(term));
+      } else {
+        put(list, term ? h('div', { class: 'muted small pick-empty' }, t('no_customer_found')) : null);
+      }
     } catch (e) { toastError(e); }
   };
+
+  async function quickAddForm(term) {
+    const looksLikeCode = /\d/.test(term) && !/\s/.test(term);
+    const codeIn = input({ value: looksLikeCode ? term : '', placeholder: t('code'), autocomplete: 'off' });
+    const nameIn = input({ value: looksLikeCode ? '' : term, placeholder: t('qa_name_ph'), autocomplete: 'off' });
+    const dlId = 'qa-depts-' + (++pickerSeq);
+    const depts = await departmentsList().catch(() => []);
+    const deptIn = input({ placeholder: t('qa_dept_ph'), autocomplete: 'off', list: dlId });
+    const dl = h('datalist', { id: dlId }, depts.map((d) => h('option', { value: lang() === 'en' && d.name_en ? d.name_en : d.name_ar })));
+    const chips = h('div', { class: 'chips qa-depts' }, depts.slice(0, 16).map((d) => {
+      const label = lang() === 'en' && d.name_en ? d.name_en : d.name_ar;
+      return h('button', { type: 'button', class: 'chip', onclick: (e) => {
+        deptIn.value = label; chips.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === e.currentTarget));
+      } }, label);
+    }));
+    deptIn.oninput = () => chips.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.textContent === deptIn.value.trim()));
+    const addBtn = btn(t('qa_add_pick'), () => busy(addBtn, async () => { try {
+      if (!codeIn.value.trim()) { codeIn.focus(); return toast(t('err.CODE_REQUIRED'), 'bad'); }
+      if (!nameIn.value.trim()) { nameIn.focus(); return toast(t('err.NAME_REQUIRED'), 'bad'); }
+      const res = await rpc('quick_add_customer', { p_code: codeIn.value.trim(), p_full_name: nameIn.value.trim(), p_department: deptIn.value.trim() || null });
+      if (res.new_department) deptCache = null;
+      const row = await loadCustomer(res.id);
+      toast(t('qa_added'), 'ok');
+      if (row) choose(row);
+    } catch (err) { toastError(err); } }), 'primary');
+    [codeIn, nameIn, deptIn].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } }));
+    setTimeout(() => (looksLikeCode ? nameIn : codeIn).focus(), 50);
+    return h('div', { class: 'quick-add' },
+      h('div', { class: 'qa-title' }, t('qa_title')),
+      h('div', { class: 'qa-grid' },
+        field(t('code'), codeIn), field(t('name'), nameIn)),
+      field(t('department'), deptIn), dl, chips,
+      h('div', { class: 'muted small' }, t('qa_dept_hint')),
+      h('div', { class: 'form-actions' }, addBtn));
+  }
+
   function choose(r) { inp.value = ''; clear(list); rows = []; onPick(r); }
   inp.oninput = () => { clearTimeout(timer); timer = setTimeout(run, 220); };
   inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); run().then(() => { if (rows.length === 1) choose(rows[0]); }); } };
