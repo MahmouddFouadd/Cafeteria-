@@ -1,4 +1,4 @@
-import { h, put, btn, input, select, field, dataTable, badge, modal, toast, toastError, busy, fmtMoney, exportExcel } from '../ui.js';
+import { h, put, btn, input, select, field, dataTable, badge, modal, toast, toastError, busy, fmtMoney, exportExcel, loadXLSX } from '../ui.js';
 import { t, lang } from '../i18n.js';
 import { sb } from '../supabase.js';
 import { q, rpc, errText } from '../api.js';
@@ -109,7 +109,7 @@ export async function customersPage(root) {
     const preview = h('div');
     let parsed = [];
     file.onchange = async () => {
-      if (!window.XLSX) { toast(t('err.EXCEL_LIB'), 'bad'); return; }
+      try { await loadXLSX(); } catch (_) { toast(t('err.EXCEL_LIB'), 'bad'); return; }
       const f = file.files[0]; if (!f) return;
       const wb = XLSX.read(await f.arrayBuffer());
       const sheet = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });

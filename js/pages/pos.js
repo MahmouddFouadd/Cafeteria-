@@ -3,7 +3,7 @@ import { t } from '../i18n.js';
 import { sb } from '../supabase.js';
 import { q, rpc } from '../api.js';
 import { can, session } from '../session.js';
-import { refs, nm, usePrep, setting } from '../store.js';
+import { refs, nm, usePrep, setting, cachedSWR } from '../store.js';
 import { customerPicker, balanceBlock, printOrderReceipt, loadCustomer, personMeta } from '../sales.js';
 
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
@@ -17,11 +17,14 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
 export async function posPage(root) {
   // Cash at the buffet can be switched off in Settings; reception/closing users always can.
   const canCash = can('payments.receive') && (setting('buffet_cash', true) === true || can('closing.perform'));
-  const [products, addons, links, hints] = await Promise.all([
-    q(sb.from('products').select('*, product_variants(*)').eq('active', true).order('sort').order('id')),
-    q(sb.from('addons').select('*').eq('active', true).order('sort')),
-    q(sb.from('variant_addons').select('*')),
-    rpc('pos_hints', { p_customer_id: null }).catch(() => ({ popular: [], recent_customers: [] })),
+  // The menu is cached for the session (refreshed quietly after a minute), so the screen opens instantly
+  const [[products, addons, links], hints] = await Promise.all([
+    cachedSWR('pos:catalog', () => Promise.all([
+      q(sb.from('products').select('*, product_variants(*)').eq('active', true).order('sort').order('id')),
+      q(sb.from('addons').select('*').eq('active', true).order('sort')),
+      q(sb.from('variant_addons').select('*')),
+    ])),
+    cachedSWR('pos:hints', () => rpc('pos_hints', { p_customer_id: null }).catch(() => ({ popular: [], recent_customers: [] })), { freshMs: 20000 }),
   ]);
   const addonsFor = (vid) => addons.filter((a) => links.some((l) => l.variant_id === vid && l.addon_id === a.id));
   // Most ordered first (last 30 days); the menu order breaks ties
