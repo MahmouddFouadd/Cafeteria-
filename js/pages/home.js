@@ -2,7 +2,7 @@ import { h, put, btn, badge, fmtNum, fmtMoney, toastError } from '../ui.js';
 import { t, lang } from '../i18n.js';
 import { rpc } from '../api.js';
 import { can, session } from '../session.js';
-import { material, unitLabel, usePrep } from '../store.js';
+import { material, unitLabel, usePrep, setting } from '../store.js';
 
 const LINKS = [
   ['reports', 'reports.sales'], ['pos', 'pos.create_order'], ['queue', 'orders.queue'], ['reception', 'accounts.deposit'],
@@ -199,6 +199,12 @@ export async function homePage(root) {
     }
     if (row3.length) blocks.push(h('div', { class: 'dash-row' }, row3));
 
+    if (can('settings.manage')) {
+      const at = setting('last_backup_at', null);
+      const days = at ? (Date.now() - new Date(at).getTime()) / 86400000 : Infinity;
+      if (days >= 7) blocks.unshift(h('a', { href: '#/settings', class: 'alert warn pin-banner' },
+        h('b', null, t('backup_banner_title')), ' ', at ? t('backup_banner_old', { d: Math.floor(days) }) : t('backup_banner_never')));
+    }
     if (!session.profile.pin_enabled) {
       blocks.unshift(h('a', { href: '#/me', class: 'alert info pin-banner' }, h('b', null, t('pin_banner_title')), ' ', t('pin_banner_text')));
     }

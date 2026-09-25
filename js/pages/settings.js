@@ -1,6 +1,8 @@
 import { h, put, toast, toastError } from '../ui.js';
 import { t } from '../i18n.js';
-import { setting, saveSetting, usePrep } from '../store.js';
+import { setting, saveSetting, usePrep, loadSettings } from '../store.js';
+import { backupExcel, backupJson } from '../backup.js';
+import { fmtDateTime, fmtNum, btn } from '../ui.js';
 
 /** Settings that change how the buffet works day to day (admin only). */
 export async function settingsPage(root) {
@@ -60,8 +62,43 @@ export async function settingsPage(root) {
         h('span', { class: 'muted small' }, t(v ? 'set_bcash_on_hint' : 'set_bcash_off_hint'))))));
   }
 
+  // ---------- Backup ----------
+  const lastEl = h('div', { class: 'backup-last' });
+  const progress = h('div', { class: 'backup-progress', hidden: true }, h('div', { class: 'bp-bar' }, h('span')), h('div', { class: 'muted small bp-text' }));
+  function drawLast() {
+    const at = setting('last_backup_at', null);
+    const days = at ? Math.floor((Date.now() - new Date(at).getTime()) / 86400000) : null;
+    put(lastEl, at
+      ? h('div', { class: 'alert ' + (days >= 7 ? 'warn' : 'ok-soft') + ' small' }, t('backup_last', { at: fmtDateTime(at), d: days }))
+      : h('div', { class: 'alert warn small' }, t('backup_never')));
+  }
+  const run = (fn) => async () => {
+    btnX.disabled = btnJ.disabled = true; progress.hidden = false;
+    const bar = progress.querySelector('.bp-bar span'), txt = progress.querySelector('.bp-text');
+    try {
+      const n = await fn((done, total, tbl) => {
+        bar.style.width = `${total ? Math.round((done / total) * 100) : 100}%`;
+        txt.textContent = t('backup_progress', { done: fmtNum(done), total: fmtNum(total), tbl });
+      });
+      await loadSettings(true).catch(() => {});
+      drawLast();
+      toast(t('backup_ok', { n: fmtNum(n) }), 'ok', 6000);
+    } catch (e) { toastError(e); }
+    finally { btnX.disabled = btnJ.disabled = false; setTimeout(() => { progress.hidden = true; }, 1500); }
+  };
+  const btnX = btn('⬇ ' + t('backup_excel'), run(backupExcel), 'primary');
+  const btnJ = btn('⬇ ' + t('backup_json'), run(backupJson));
+  drawLast();
+
   drawFlow(); drawIdle(); drawServe(); drawCash();
   root.append(
+    h('section', { class: 'panel' },
+      h('div', { class: 'panel-head' }, h('h2', null, t('backup_title'))),
+      h('p', { class: 'muted small' }, t('backup_desc')),
+      lastEl,
+      h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, btnX, btnJ),
+      progress,
+      h('p', { class: 'muted small' }, t('backup_keep'))),
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('set_flow_title'))),
       h('p', { class: 'muted small' }, t('set_flow_desc')),
