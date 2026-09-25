@@ -53,6 +53,9 @@ export async function receptionPage(root) {
         h('p', { class: 'muted small' }, t('deposit_settles_note'))) : null));
   }
 
+  const qc = Number(new URLSearchParams(location.hash.split('?')[1] || '').get('c'));
+  if (qc) show(qc);
+
   function stat(label, value) { return h('div', { class: 'stat' }, h('span', { class: 'muted small' }, label), h('div', null, value)); }
 
   async function loadToday() {

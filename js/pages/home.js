@@ -191,12 +191,15 @@ export async function homePage(root) {
         h('div', { class: 'panel-head' }, h('h2', null, t('dash_top_debtors')),
           can('accounts.deposit') ? h('a', { href: '#/reception', class: 'btn sm' }, t('nav.reception')) : null),
         accounts.top_debtors.length
-          ? ranked(accounts.top_debtors, { name: (r) => `${r.name} (${r.code})`, value: (r) => r.due, sub: (r) => fmtMoney(r.due) })
+          ? ranked(accounts.top_debtors, { name: (r) => (can('accounts.deposit') ? h('a', { href: '#/reception?c=' + r.id }, `${r.name} (${r.code})`) : `${r.name} (${r.code})`), value: (r) => r.due, sub: (r) => fmtMoney(r.due) })
           : h('div', { class: 'empty' }, t('dash_no_debtors')),
         h('div', { class: 'muted small dash-note' }, t('dash_active_customers', { n: fmtNum(accounts.active_customers) }))));
     }
     if (row3.length) blocks.push(h('div', { class: 'dash-row' }, row3));
 
+    if (!session.profile.pin_enabled) {
+      blocks.unshift(h('a', { href: '#/me', class: 'alert info pin-banner' }, h('b', null, t('pin_banner_title')), ' ', t('pin_banner_text')));
+    }
     if (!blocks.length) blocks.push(h('div', { class: 'empty' }, t('dash_nothing')));
     put(body, blocks);
   }

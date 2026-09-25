@@ -20,7 +20,7 @@ export async function customersPage(root) {
   const deptName = (id) => { const d = depts.find((x) => x.id === id); return d ? (lang() === 'en' && d.name_en ? d.name_en : d.name_ar) : ''; };
   const cols = [
     { label: t('code'), key: 'code' },
-    { label: t('name'), key: 'full_name' },
+    { label: t('name'), render: (r) => (can('accounts.deposit') || can('payments.receive') ? h('a', { href: '#/reception?c=' + r.id, class: 'cust-link' }, r.full_name) : r.full_name) },
     { label: t('department'), render: (r) => deptName(r.department_id) },
     { label: t('type'), render: (r) => t('ct.' + r.customer_type), x: (r) => t('ct.' + r.customer_type) },
     { label: t('balance'), num: true, render: (r) => balanceBlock(r.balance), x: (r) => Number(r.balance) },

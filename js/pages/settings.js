@@ -34,12 +34,28 @@ export async function settingsPage(root) {
     }, t('minutes_n', { n: m }))));
   }
 
-  drawFlow(); drawIdle();
+  const serveBox = h('div');
+  function drawServe() {
+    const on = setting('serve_on_create', false) === true;
+    put(serveBox, [false, true].map((v) => h('button', {
+      type: 'button', class: 'choice' + (on === v ? ' on' : ''), onclick: async () => {
+        if (on === v) return;
+        try { await saveSetting('serve_on_create', v); toast(t('saved'), 'ok'); drawServe(); } catch (e) { toastError(e); }
+      },
+    }, h('span', { class: 'choice-dot', 'aria-hidden': 'true' }),
+      h('span', { class: 'choice-body' }, h('b', null, t(v ? 'set_serve_auto' : 'set_serve_manual')),
+        h('span', { class: 'muted small' }, t(v ? 'set_serve_auto_hint' : 'set_serve_manual_hint'))))));
+  }
+
+  drawFlow(); drawIdle(); drawServe();
   root.append(
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('set_flow_title'))),
       h('p', { class: 'muted small' }, t('set_flow_desc')),
       flowBox),
+    usePrep() ? null : h('section', { class: 'panel' },
+      h('div', { class: 'panel-head' }, h('h2', null, t('set_serve_title'))),
+      h('div', { class: 'choice-list' }, serveBox)),
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('set_idle_title'))),
       h('p', { class: 'muted small' }, t('set_idle_desc')),

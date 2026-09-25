@@ -3,22 +3,29 @@ import { t } from '../i18n.js';
 import { sb } from '../supabase.js';
 import { q, rpc } from '../api.js';
 import { can, session } from '../session.js';
-import { refs, nm, usePrep } from '../store.js';
-import { customerPicker, balanceBlock, printOrderReceipt } from '../sales.js';
+import { refs, nm, usePrep, setting } from '../store.js';
+import { customerPicker, balanceBlock, printOrderReceipt, loadCustomer } from '../sales.js';
 
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
   : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
 
 export async function posPage(root) {
   const canCash = can('payments.receive');
-  const [products, addons, links] = await Promise.all([
+  const [products, addons, links, hints] = await Promise.all([
     q(sb.from('products').select('*, product_variants(*)').eq('active', true).order('sort').order('id')),
     q(sb.from('addons').select('*').eq('active', true).order('sort')),
     q(sb.from('variant_addons').select('*')),
+    rpc('pos_hints', { p_customer_id: null }).catch(() => ({ popular: [], recent_customers: [] })),
   ]);
+  // Most ordered first (last 30 days); the menu order breaks ties
+  const pop = new Map((hints.popular || []).map((x) => [x.variant_id, Number(x.qty)]));
+  const productPop = (p) => (p.product_variants || []).reduce((sum, v) => sum + (pop.get(v.id) || 0), 0);
   const addonsFor = (vid) => addons.filter((a) => links.some((l) => l.variant_id === vid && l.addon_id === a.id));
-  const catalog = products.map((p) => ({ ...p, variants: (p.product_variants || []).filter((v) => v.active).sort((a, b) => a.sort - b.sort || a.id - b.id) }))
-    .filter((p) => p.variants.length);
+  const catalog = products.map((p) => ({ ...p, pop: productPop(p), variants: (p.product_variants || []).filter((v) => v.active).sort((a, b) => a.sort - b.sort || a.id - b.id) }))
+    .filter((p) => p.variants.length)
+    .sort((a, b) => b.pop - a.pop);
+  const topIds = new Set(catalog.filter((p) => p.pop > 0).slice(0, 3).map((p) => p.id));
+  const findVariant = (vid) => { for (const p of catalog) { const v = p.variants.find((x) => x.id === vid); if (v) return { p, v }; } return null; };
 
   // ---------- state ----------
   const st = { cart: [], customer: null, guest: false, guestName: '', payMode: 'ACCOUNT', cashIn: '', cashRecv: '', extraMode: null, key: uuid(), cat: '' };
@@ -42,8 +49,8 @@ export async function posPage(root) {
     const s = search.value.trim().toLowerCase();
     const list = catalog.filter((p) => (!st.cat || String(p.category_id) === st.cat)
       && (!s || `${p.name_ar} ${p.name_en || ''} ${p.code}`.toLowerCase().includes(s)));
-    put(grid, list.length ? list.map((p) => h('div', { class: 'pos-card' },
-      h('div', { class: 'pos-name' }, nm(p)),
+    put(grid, list.length ? list.map((p) => h('div', { class: 'pos-card' + (topIds.has(p.id) ? ' top' : '') },
+      h('div', { class: 'pos-name' }, nm(p), topIds.has(p.id) ? h('span', { class: 'top-badge', title: t('most_ordered') }, '★') : null),
       h('div', { class: 'pos-variants' }, p.variants.map((v) => h('button', {
         type: 'button', class: 'pos-var', onclick: () => addToCart(p, v),
       }, p.variants.length > 1 || v.name_en !== 'Regular' ? h('span', null, nm(v)) : null, h('b', null, fmtMoney(v.price))))))) :
@@ -70,9 +77,13 @@ export async function posPage(root) {
     clear(custBox);
     if (st.customer) {
       const c = st.customer;
+      const repeatBox = h('div', { class: 'repeat-box' });
       custBox.append(h('div', { class: 'cust-card' },
-        h('div', { class: 'grow' }, h('b', null, c.full_name), h('div', { class: 'muted small' }, `${c.code}${c.department_ar ? ' · ' + c.department_ar : ''}`), balanceBlock(c.balance)),
-        btn(t('change'), () => { st.customer = null; renderAll(); }, 'sm')));
+        h('div', { class: 'grow' },
+          h('a', { href: '#/reception?c=' + c.id, class: 'cust-link' }, h('b', null, c.full_name)),
+          h('div', { class: 'muted small' }, `${c.code}${c.department_ar ? ' · ' + c.department_ar : ''}`), balanceBlock(c.balance)),
+        btn(t('change'), () => { st.customer = null; renderAll(); }, 'sm')), repeatBox);
+      loadRepeat(c, repeatBox);
       return;
     }
     const picker = customerPicker({ onPick: (r) => { st.customer = r; st.guest = false; st.extraMode = null; renderAll(); } });
@@ -80,7 +91,15 @@ export async function posPage(root) {
     const guestName = input({ placeholder: t('guest_name_ph'), value: st.guestName });
     guestName.oninput = () => { st.guestName = guestName.value; };
     if (guestToggle) guestToggle.input.onchange = () => { st.guest = guestToggle.input.checked; if (st.guest) { st.payMode = 'CASH'; } renderAll(); };
-    custBox.append(...[st.guest ? null : picker.el, guestToggle, st.guest ? field(t('guest_name'), guestName) : null].filter(Boolean));
+    const recent = !st.guest && (hints.recent_customers || []).length
+      ? h('div', { class: 'recent-cust' },
+          h('span', { class: 'muted small' }, t('recent_customers')),
+          h('div', { class: 'chips scroll' }, hints.recent_customers.map((r) => h('button', { type: 'button', class: 'chip', onclick: async () => {
+            const full = await loadCustomer(r.id).catch(() => null);
+            st.customer = full || r; st.guest = false; st.extraMode = null; renderAll();
+          } }, r.full_name))))
+      : null;
+    custBox.append(...[st.guest ? null : picker.el, recent, guestToggle, st.guest ? field(t('guest_name'), guestName) : null].filter(Boolean));
   }
 
   function renderCart() {
@@ -227,10 +246,32 @@ export async function posPage(root) {
           !usePrep() && can('orders.update_status') ? servedBtn(res.order_id) : null,
           btn(t('print_receipt'), () => printOrderReceipt(res.order_id), 'sm'))));
       navigator.vibrate?.(25);
+      if (!usePrep() && setting('serve_on_create', false) === true && can('orders.update_status')) {
+        const sb2 = resultBox.querySelector('.served-btn');
+        if (sb2) sb2.click();
+      }
       st.cart = []; st.cashIn = ''; st.cashRecv = ''; st.extraMode = null; st.key = uuid(); st.guestName = '';
       st.customer = null; st.guest = false; st.payMode = 'ACCOUNT';
       renderAll();
     } catch (e) { toastError(e); }
+  }
+
+  async function loadRepeat(c, box) {
+    try {
+      const r = await rpc('pos_hints', { p_customer_id: c.id });
+      if (st.customer?.id !== c.id || !r.last_order?.items?.length) return;
+      const items = r.last_order.items.map((it) => ({ it, f: findVariant(it.variant_id) })).filter((x) => x.f);
+      if (!items.length) return;
+      const label = items.map(({ it, f }) => `${it.qty}× ${nm(f.p)}${f.p.variants.length > 1 ? ' ' + nm(f.v) : ''}`).join('، ');
+      put(box, h('button', { type: 'button', class: 'repeat-btn', onclick: () => {
+        for (const { it, f } of items) {
+          const ads = (it.addons || []).map((id) => addons.find((a) => a.id === id)).filter(Boolean);
+          st.cart.push({ id: uuid(), product: f.p, variant: f.v, qty: it.qty, addons: ads, notes: it.notes || '' });
+        }
+        renderCart(); pulse(); navigator.vibrate?.(15);
+      } }, h('span', { class: 'rb-ico', 'aria-hidden': 'true' }, '↻'),
+        h('span', null, h('b', null, t('repeat_last')), h('span', { class: 'muted small' }, label))));
+    } catch (_) { /* hint only */ }
   }
 
   function servedBtn(orderId) {
@@ -238,7 +279,7 @@ export async function posPage(root) {
       b.disabled = true;
       try { await rpc('set_order_status', { p_order_id: orderId, p_status: 'SERVED' }); b.textContent = '✓ ' + t('served_done'); b.classList.remove('primary'); navigator.vibrate?.(15); }
       catch (e) { b.disabled = false; toastError(e); }
-    }, 'primary');
+    }, 'primary served-btn');
     return b;
   }
 
