@@ -28,7 +28,7 @@ const REPORTS = [
   { k: 'staff', perm: 'reports.sales', cols: [
       { label: t('user'), render: (r) => h('b', null, r.name), x: (r) => r.name },
       count('orders', 'rep_orders_created'), count('qty', 'rep_qty'), money('amount', 'rep_amount'),
-      count('served', 'rep_served'), money('cash_orders', 'rep_cash_orders'), money('deposits', 'rep_deposits'), money('refunds', 'rep_refunds')] },
+      count('served', 'rep_served'), money('cash_orders', 'rep_cash_orders'), money('deposits', 'rep_deposits'), money('machine', 'machine_cash'), money('refunds', 'rep_refunds')] },
   { k: 'top_items', perm: 'reports.sales', cols: [
       { label: t('rep_item'), render: (r) => h('b', null, itemName(r)), x: itemName },
       count('orders', 'rep_orders'), count('qty', 'rep_qty'), money('amount', 'rep_amount'),
@@ -36,13 +36,14 @@ const REPORTS = [
   { k: 'daily', perm: 'reports.sales', cols: [
       { label: t('date'), render: (r) => h('b', null, fmtDate(r.day)), x: (r) => r.day },
       count('orders', 'rep_orders'), count('qty', 'rep_qty'), money('amount', 'rep_amount'),
-      money('cash_orders', 'rep_cash_orders'), money('deposits', 'rep_deposits'), money('refunds', 'rep_refunds'), count('cancelled', 'rep_cancelled')] },
+      money('cash_orders', 'rep_cash_orders'), money('deposits', 'rep_deposits'), money('machine', 'machine_cash'), money('refunds', 'rep_refunds'), count('cancelled', 'rep_cancelled')] },
   { k: 'collections', perm: 'reports.financial', cols: [
       { label: t('time'), render: (r) => fmtDateTime(r.at), x: (r) => fmtDateTime(r.at) },
       { label: t('receipt_no'), key: 'receipt_no' },
       { label: t('type'), render: (r) => t('pp.' + r.purpose), x: (r) => t('pp.' + r.purpose) },
       { label: t('customer'), render: (r) => r.customer || t('guest'), x: (r) => r.customer || '' },
       { label: t('user'), key: 'user' },
+      { label: t('drawer'), render: (r) => (r.drawer ? t('drawer.' + r.drawer) : ''), x: (r) => (r.drawer ? t('drawer.' + r.drawer) : '') },
       { key: 'signed', label: t('amount'), num: true, sum: true, render: (r) => h('b', { class: r.direction === 'OUT' ? 'bad-text' : '' }, fmtMoney(r.signed)), x: (r) => Number(r.signed) }] },
   { k: 'receivables', perm: 'reports.financial', noPeriod: true, click: openPerson, cols: [
       { label: t('name'), render: (r) => h('div', null, h('b', null, r.name), h('div', { class: 'muted small' }, personMeta({ customer_type: r.type, code: r.code, department_ar: r.dept_ar, department_en: r.dept_en, company: r.company }))), x: (r) => r.name },
@@ -108,7 +109,7 @@ export async function reportsPage(root) {
     try {
       rows = await rpc('report', { p_kind: cur.k, p_from: from, p_to: to });
       if (cur.k === 'top_items') { const tot = rows.reduce((a, r) => a + Number(r.qty), 0) || 1; rows.forEach((r) => { r.share = (Number(r.qty) / tot) * 100; }); }
-      if (cur.k === 'daily') rows = rows.filter((r) => Number(r.orders) || Number(r.deposits) || Number(r.refunds) || Number(r.cancelled) || Number(r.cash_orders));
+      if (cur.k === 'daily') rows = rows.filter((r) => Number(r.orders) || Number(r.deposits) || Number(r.refunds) || Number(r.cancelled) || Number(r.cash_orders) || Number(r.machine));
       if (cur.k === 'collections') rows.forEach((r) => { r.signed = r.direction === 'OUT' ? -Number(r.amount) : Number(r.amount); });
       draw();
     } catch (e) { put(table, h('div', { class: 'alert bad' }, e.message)); toastError(e); }

@@ -167,7 +167,9 @@ export async function homePage(root) {
           line('+ ' + t('dash_cash_sales'), fmtMoney(cash.cash_sales)),
           line('+ ' + t('dash_deposits'), fmtMoney(cash.deposits)),
           line('− ' + t('dash_refunds'), fmtMoney(cash.refunds)),
-          line(t('dash_expected_cash'), fmtMoney(cash.expected), 'total'))));
+          Number(cash.machine) ? line('− ' + t('machine_cash'), fmtMoney(cash.machine)) : null,
+          line(t('dash_expected_cash'), fmtMoney(cash.expected), 'total'),
+          cash.buffet_cash != null ? line(t('drawer.BUFFET'), fmtMoney(cash.buffet_cash), Number(cash.buffet_cash) < 0 ? 'neg' : '') : null)));
     }
     if (row2.length) blocks.push(h('div', { class: 'dash-row' }, row2));
 

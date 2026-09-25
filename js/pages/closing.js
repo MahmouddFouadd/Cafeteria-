@@ -21,7 +21,13 @@ export async function closingPage(root) {
       [t('cash_sales'), fmtMoney(p.cash_sales)],
       [t('deposits_cash'), fmtMoney(p.deposits_cash)],
       [t('refunds_cash'), '− ' + fmtMoney(p.refunds_cash)],
+      [t('machine_cash'), '− ' + fmtMoney(p.machine_cash || 0)],
       [t('expected_cash'), h('b', null, fmtMoney(p.expected_cash))],
+    ];
+    // where the money should physically be
+    const drawerKv = [
+      [t('drawer.RECEPTION'), fmtMoney(p.reception_cash ?? p.expected_cash)],
+      [t('drawer.BUFFET'), h('span', { class: Number(p.buffet_cash) < 0 ? 'bad-text' : '' }, fmtMoney(p.buffet_cash || 0))],
     ];
     const infoKv = [
       [t('orders'), `${p.orders_count} — ${fmtMoney(p.orders_total)}`],
@@ -46,7 +52,30 @@ export async function closingPage(root) {
     const cashBox = h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, `${t('nav.closing')} ${fmtDate(p.business_date)}`),
         badge(t('cls.' + p.status), closed ? 'ok' : p.status === 'NOT_OPENED' ? '' : 'warn')),
-      h('div', { class: 'two-col' }, kv(rowsKv), kv(infoKv)));
+      h('div', { class: 'two-col' }, kv(rowsKv), kv(infoKv)),
+      h('h3', { class: 'drawer-title' }, t('drawers_title')),
+      kv(drawerKv),
+      Number(p.buffet_cash) < 0 ? h('div', { class: 'alert warn small' }, t('buffet_negative')) : null);
+
+    // hand cash between the two drawers (today, day not closed)
+    if (p.status !== 'CLOSED' && isToday && can('closing.perform')) {
+      const amt = input({ type: 'number', placeholder: '0' });
+      const note = input({ placeholder: t('notes') });
+      const go = (to) => async () => {
+        const v = Number(amt.value);
+        if (!(v > 0)) { amt.focus(); return toast(t('amount_required'), 'warn'); }
+        try { await rpc('cash_handover', { p_amount: v, p_notes: note.value.trim() || null, p_to: to }); toast(t('saved'), 'ok'); load(); }
+        catch (e) { toastError(e); }
+      };
+      if (Number(p.buffet_cash) > 0) amt.value = String(p.buffet_cash);
+      cashBox.append(h('div', { class: 'handover' },
+        h('h3', null, t('handover_title')),
+        h('p', { class: 'muted small' }, t('handover_hint')),
+        h('div', { class: 'grid-2' }, field(t('amount'), amt), field(t('notes'), note)),
+        h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+          btn(t('handover_to_reception'), go('RECEPTION'), 'primary'),
+          btn(t('handover_to_buffet'), go('BUFFET')))));
+    }
 
     if (!closed) {
       const actual = input({ type: 'number', step: '0.01', min: '0', inputmode: 'decimal' });

@@ -33,6 +33,10 @@ export async function posPage(root) {
   const catalog = products.map((p) => ({ ...p, pop: productPop(p), variants: (p.product_variants || []).filter((v) => v.active).sort((a, b) => a.sort - b.sort || a.id - b.id) }))
     .filter((p) => p.variants.length)
     .sort((a, b) => b.pop - a.pop);
+  // Coffee-machine drinks: one open-price variant, entered with its own button (not in the grid)
+  let machine = null;
+  for (const p of catalog) { const v = p.variants.find((x) => x.open_price); if (v) { machine = { p, v }; break; } }
+  if (machine) { const i = catalog.indexOf(machine.p); if (machine.p.variants.every((x) => x.open_price)) catalog.splice(i, 1); else machine.p.variants = machine.p.variants.filter((x) => !x.open_price); }
   const topIds = new Set(catalog.filter((p) => p.pop > 0).slice(0, 3).map((p) => p.id));
   const findVariant = (vid) => { for (const p of catalog) { const v = p.variants.find((x) => x.id === vid); if (v) return { p, v }; } return null; };
 
@@ -42,7 +46,8 @@ export async function posPage(root) {
     payer: 'SELF', customer: null, host: null,
     payMode: 'ACCOUNT', cashRecv: '', extraMode: null, key: uuid(), cat: '',
   };
-  const total = () => st.cart.reduce((s, l) => s + l.qty * (Number(l.variant.price) + l.addons.reduce((a, x) => a + Number(x.price), 0)), 0);
+  const unitOf = (l) => (l.price != null ? Number(l.price) : Number(l.variant.price)) + l.addons.reduce((a, x) => a + Number(x.price), 0);
+  const total = () => st.cart.reduce((s, l) => s + l.qty * unitOf(l), 0);
   const count = () => st.cart.reduce((s, l) => s + l.qty, 0);
   const cashOnly = () => st.walkin || st.payer === 'CASH';
 
@@ -193,15 +198,16 @@ export async function posPage(root) {
     clear(lines);
     if (!st.cart.length) lines.append(h('div', { class: 'muted cart-empty' }, t('cart_empty')));
     for (const l of st.cart) {
-      const unit = Number(l.variant.price) + l.addons.reduce((a, x) => a + Number(x.price), 0);
-      const avail = addonsFor(l.variant.id);
+      const unit = unitOf(l);
+      const avail = l.machine ? [] : addonsFor(l.variant.id);
       lines.append(h('div', { class: 'cart-line' },
         h('div', { class: 'cl-main' },
-          h('div', { class: 'cl-name' }, nm(l.product), l.product.variants.length > 1 ? ` — ${nm(l.variant)}` : ''),
+          l.machine ? h('div', { class: 'cl-name' }, '☕ ', l.name, h('div', { class: 'muted small' }, t('machine_line_note')))
+            : h('div', { class: 'cl-name' }, nm(l.product), l.product.variants.length > 1 ? ` — ${nm(l.variant)}` : ''),
           l.addons.length ? h('div', { class: 'muted small' }, '+ ' + l.addons.map(nm).join('، ')) : null,
           l.notes ? h('div', { class: 'muted small' }, l.notes) : null,
           h('div', { class: 'cl-tools' },
-            btn(t('addons_notes'), () => editLine(l, avail), 'sm ghost'),
+            l.machine ? btn(t('edit'), () => machineDialog(l), 'sm ghost') : btn(t('addons_notes'), () => editLine(l, avail), 'sm ghost'),
             h('span', { class: 'muted small' }, fmtMoney(unit)))),
         h('div', { class: 'stepper' },
           h('button', { type: 'button', 'aria-label': t('less'), onclick: () => { l.qty -= 1; if (l.qty <= 0) st.cart.splice(st.cart.indexOf(l), 1); renderCart(); } }, '−'),
@@ -213,6 +219,40 @@ export async function posPage(root) {
     mobileBar.textContent = `${st.person ? st.person.full_name + ' · ' : ''}${t('cart')} (${count()}) — ${fmtMoney(total())}`;
     mobileBar.hidden = !st.cart.length;
     renderPay();
+  }
+
+  // Remember recent machine drinks on this device for one-tap re-use
+  const MKEY = 'cafeteria-machine-items';
+  const recentMachine = () => { try { return JSON.parse(localStorage.getItem(MKEY) || '[]'); } catch (_) { return []; } };
+  function rememberMachine(name, price) {
+    const list = recentMachine().filter((x) => x.name !== name);
+    list.unshift({ name, price });
+    try { localStorage.setItem(MKEY, JSON.stringify(list.slice(0, 8))); } catch (_) {}
+  }
+  function machineDialog(line = null) {
+    const name = input({ value: line?.name || '', placeholder: t('machine_name_ph') });
+    const price = input({ type: 'number', value: line?.price ?? '', placeholder: '0' });
+    const qty = input({ type: 'number', value: String(line?.qty || 1) });
+    const recent = recentMachine();
+    const chips = recent.length ? h('div', { class: 'chips' }, recent.map((x) => h('button', { type: 'button', class: 'chip',
+      onclick: () => { name.value = x.name; price.value = String(x.price); price.focus(); } }, `${x.name} · ${fmtMoney(x.price)}`))) : null;
+    const m = modal({
+      title: '☕ ' + t('machine_title'),
+      body: h('div', { style: { display: 'grid', gap: '10px' } },
+        h('div', { class: 'alert info small' }, t('machine_hint')),
+        chips, field(t('machine_name'), name),
+        h('div', { class: 'grid-2' }, field(t('machine_price'), price), field(t('qty'), qty))),
+      actions: [btn(t('cancel'), () => m.close()), btn(line ? t('save') : t('add'), () => {
+        const n = name.value.trim(), pr = Number(price.value), q2 = Math.max(1, Math.round(Number(qty.value) || 1));
+        if (!n) { name.focus(); return toast(t('machine_name_req'), 'warn'); }
+        if (!(pr > 0)) { price.focus(); return toast(t('machine_price_req'), 'warn'); }
+        rememberMachine(n, pr);
+        if (line) Object.assign(line, { name: n, price: pr, qty: q2 });
+        else st.cart.push({ id: uuid(), product: machine.p, variant: machine.v, qty: q2, addons: [], notes: '', machine: true, name: n, price: pr });
+        m.close(); renderCart(); pulse();
+      }, 'primary')],
+    });
+    setTimeout(() => (recent.length && !line ? price : name).focus(), 60);
   }
 
   function editLine(l, avail) {
@@ -309,7 +349,8 @@ export async function posPage(root) {
     } else if (canCash && st.payMode !== 'ACCOUNT') cash = received(tot);
     const extraToAccount = !cashOnly() && st.payMode !== 'ACCOUNT' && cash > tot && st.extraMode === 'ACCOUNT';
 
-    const items = st.cart.map((l) => ({ variant_id: l.variant.id, qty: l.qty, addons: l.addons.map((a) => a.id), notes: l.notes || null }));
+    const items = st.cart.map((l) => ({ variant_id: l.variant.id, qty: l.qty, addons: l.addons.map((a) => a.id), notes: l.notes || null,
+      ...(l.machine ? { price: Number(l.price), name: l.name } : {}) }));
     try {
       const res = await rpc('create_order', {
         p_items: items,
@@ -328,6 +369,7 @@ export async function posPage(root) {
           + (Number(res.cash) ? ` — ${t('cash')}: ${fmtMoney(res.cash)}` : '')
           + (Number(res.account) ? ` — ${t('from_account')}: ${fmtMoney(res.account)}` : '')
           + (Number(res.deposit) ? ` — ${t('extra_deposited', { v: fmtMoney(res.deposit) })}` : '')
+          + (Number(res.machine) ? ` — ${t('machine_paid', { v: fmtMoney(res.machine) })}` : '')
           + (change > 0 ? ` — ${t('change_due')}: ${fmtMoney(change)}` : '')),
         res.balance != null ? h('div', null, balanceBlock(res.balance)) : null,
         res.warnings?.length ? h('div', { class: 'small', style: { marginTop: '6px' } }, t('negative_warning'), ' ', res.warnings.map((w) => nm(w)).join('، ')) : null,
@@ -364,7 +406,10 @@ export async function posPage(root) {
 
   root.append(personPanel,
     h('div', { class: 'pos' },
-      h('section', { class: 'pos-catalog' }, h('div', { class: 'toolbar' }, h('div', { class: 'grow' }, search)), catBar, grid),
+      h('section', { class: 'pos-catalog' },
+        h('div', { class: 'toolbar' }, h('div', { class: 'grow' }, search),
+          machine ? btn('☕ ' + t('machine_btn'), () => machineDialog(), 'machine-btn') : null),
+        catBar, grid),
       cartPanel),
     mobileBar);
 
