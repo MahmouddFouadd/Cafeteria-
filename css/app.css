@@ -777,3 +777,18 @@ button, a, .pos-var, .chip, .tab, .pick-item { touch-action: manipulation; }
 .me-head { display: flex; align-items: center; gap: 14px; }
 .me-head h2 { margin: 0; }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+
+/* ---------- Buffet screen: person first, then who pays ---------- */
+.pos-person { margin-bottom: 16px; }
+.pos-person h2 { margin-top: 0; }
+.payer-box { display: grid; gap: 8px; margin-top: 10px; }
+.payer-label { font-weight: 600; }
+.payer-seg { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.host-chip { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border-radius: var(--radius); background: var(--primary-soft); }
+.walkin-row { margin-top: 8px; }
+.qa-types { flex-wrap: wrap; }
+@media (min-width: 961px) {
+  .pos-person { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; align-items: start; }
+  .pos-person > h2 { grid-column: 1 / -1; }
+  .pos-person > .repeat-box, .pos-person > div:last-child { grid-column: 1 / -1; }
+}
