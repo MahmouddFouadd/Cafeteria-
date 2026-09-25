@@ -5,7 +5,7 @@ import { can, session } from '../session.js';
 import { material, unitLabel, usePrep } from '../store.js';
 
 const LINKS = [
-  ['pos', 'pos.create_order'], ['queue', 'orders.queue'], ['reception', 'accounts.deposit'],
+  ['reports', 'reports.sales'], ['pos', 'pos.create_order'], ['queue', 'orders.queue'], ['reception', 'accounts.deposit'],
   ['orders', 'orders.view'], ['customers', 'customers.manage'], ['closing', 'closing.perform'],
   ['docs/purchase', 'inventory.purchase'], ['docs/transfer', 'inventory.transfer'],
   ['docs/issue', 'inventory.issue'], ['docs/waste', 'inventory.waste'],
