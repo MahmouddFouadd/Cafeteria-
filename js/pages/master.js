@@ -7,6 +7,14 @@ import { nm, loadRefs } from '../store.js';
 const DIMENSIONS = ['MASS', 'VOLUME', 'COUNT', 'PACK'];
 
 const TABS = [
+  { key: 'departments', perm: 'customers.manage', cfg: () => ({
+      table: 'departments', order: 'name_ar', newLabel: t('new_department'),
+      search: (r) => `${r.name_ar} ${r.name_en || ''}`,
+      fields: [
+        { key: 'name_ar', label: t('name_ar'), required: true }, { key: 'name_en', label: t('name_en') },
+        { key: 'active', label: t('active'), type: 'bool', default: true },
+      ],
+      columns: [{ label: t('name'), render: (r) => nm(r) }, { label: t('status'), render: activeBadge }] }) },
   { key: 'units', perm: 'inventory.materials', cfg: () => ({
       table: 'units', order: 'id', newLabel: t('new_unit'),
       search: (r) => `${r.code} ${r.name_ar} ${r.name_en}`,

@@ -7,6 +7,8 @@ import { session } from '../session.js';
 import { nm, material, unitLabel } from '../store.js';
 
 const LINKS = [
+  ['pos', 'pos.create_order'], ['queue', 'orders.queue'], ['reception', 'accounts.deposit'],
+  ['orders', 'orders.view'], ['customers', 'customers.manage'], ['closing', 'closing.perform'],
   ['docs/purchase', 'inventory.purchase'], ['docs/transfer', 'inventory.transfer'],
   ['docs/issue', 'inventory.issue'], ['docs/waste', 'inventory.waste'],
   ['stock', 'inventory.view'], ['counts', 'inventory.adjust'],
