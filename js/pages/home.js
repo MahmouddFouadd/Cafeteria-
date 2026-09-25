@@ -2,7 +2,7 @@ import { h, put, btn, badge, fmtNum, fmtMoney, toastError } from '../ui.js';
 import { t, lang } from '../i18n.js';
 import { rpc } from '../api.js';
 import { can, session } from '../session.js';
-import { material, unitLabel } from '../store.js';
+import { material, unitLabel, usePrep } from '../store.js';
 
 const LINKS = [
   ['pos', 'pos.create_order'], ['queue', 'orders.queue'], ['reception', 'accounts.deposit'],
@@ -115,7 +115,11 @@ export async function homePage(root) {
     // ---- Queue strip ----
     if (queue) {
       const href = can('orders.queue') ? '#/queue' : (can('orders.view') ? '#/orders' : null);
-      blocks.push(h('div', { class: 'queue-strip' },
+      if (!usePrep()) {
+        const n = Number(queue.NEW) + Number(queue.PREPARING) + Number(queue.READY);
+        const inner = [h('span', { class: 'qs-n num' }, fmtNum(n)), h('span', null, t('to_serve'))];
+        blocks.push(h('div', { class: 'queue-strip one' }, href ? h('a', { class: 'qs qs-new', href }, inner) : h('div', { class: 'qs qs-new' }, inner)));
+      } else blocks.push(h('div', { class: 'queue-strip' },
         ['NEW', 'PREPARING', 'READY'].map((s) => {
           const inner = [h('span', { class: 'qs-n num' }, fmtNum(queue[s])), h('span', null, t('fs.' + s))];
           return href ? h('a', { class: 'qs qs-' + s.toLowerCase(), href }, inner) : h('div', { class: 'qs qs-' + s.toLowerCase() }, inner);

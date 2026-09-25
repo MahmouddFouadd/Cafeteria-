@@ -4,8 +4,9 @@ import { sb } from '../supabase.js';
 import { q, rpc } from '../api.js';
 import { todayISO } from '../ui.js';
 import { lineName, addonsText, customerLabel, openOrder } from '../sales.js';
+import { usePrep } from '../store.js';
 
-const COLS = ['NEW', 'PREPARING', 'READY'];
+const COLS = ['NEW', 'PREPARING', 'READY'];   // all still-open orders
 const NEXT = { NEW: 'PREPARING', PREPARING: 'READY', READY: 'SERVED' };
 
 let beepCtx = null;
@@ -39,6 +40,14 @@ export async function queuePage(root) {
   }
 
   function render(orders, lines) {
+    if (!usePrep()) {
+      // Simple flow: one list, one big "served" button per order
+      board.classList.add('simple');
+      put(board, h('section', { class: 'q-col q-open' },
+        h('h2', null, t('to_serve'), h('span', { class: 'q-count' }, orders.length)),
+        orders.length ? orders.map((o) => card(o, lines.filter((l) => l.order_id === o.id))) : h('div', { class: 'muted small q-empty' }, t('no_orders'))));
+      return;
+    }
     put(board, COLS.map((col) => {
       const list = orders.filter((o) => o.fulfillment_status === col);
       return h('section', { class: 'q-col q-' + col.toLowerCase() },
@@ -48,10 +57,10 @@ export async function queuePage(root) {
   }
 
   function card(o, ls) {
-    const next = NEXT[o.fulfillment_status];
-    const b = btn(t('to.' + next), () => busy(b, async () => {
+    const next = usePrep() ? NEXT[o.fulfillment_status] : 'SERVED';
+    const b = btn(usePrep() ? t('to.' + next) : '✓ ' + t('mark_served'), () => busy(b, async () => {
       try { await rpc('set_order_status', { p_order_id: o.id, p_status: next }); await load(); } catch (e) { toastError(e); }
-    }), next === 'SERVED' ? '' : 'primary');
+    }), next === 'SERVED' && usePrep() ? '' : 'primary lg');
     return h('article', { class: 'q-card' },
       h('header', null, h('b', { class: 'q-no', onclick: () => openOrder(o.id, { onChange: load }) }, o.order_no),
         h('span', { class: 'muted small' }, new Date(o.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }))),

@@ -3,7 +3,7 @@ import { t } from '../i18n.js';
 import { sb } from '../supabase.js';
 import { q, rpc } from '../api.js';
 import { can, session } from '../session.js';
-import { refs, nm } from '../store.js';
+import { refs, nm, usePrep } from '../store.js';
 import { customerPicker, balanceBlock, printOrderReceipt } from '../sales.js';
 
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
@@ -223,11 +223,23 @@ export async function posPage(root) {
           + (change > 0 ? ` — ${t('change_due')}: ${fmtMoney(change)}` : '')),
         res.balance != null ? h('div', null, balanceBlock(res.balance)) : null,
         res.warnings?.length ? h('div', { class: 'small', style: { marginTop: '6px' } }, t('negative_warning'), ' ', res.warnings.map((w) => nm(w)).join('، ')) : null,
-        h('div', { style: { marginTop: '8px' } }, btn(t('print_receipt'), () => printOrderReceipt(res.order_id), 'sm'))));
+        h('div', { class: 'row', style: { marginTop: '10px', gap: '8px' } },
+          !usePrep() && can('orders.update_status') ? servedBtn(res.order_id) : null,
+          btn(t('print_receipt'), () => printOrderReceipt(res.order_id), 'sm'))));
+      navigator.vibrate?.(25);
       st.cart = []; st.cashIn = ''; st.cashRecv = ''; st.extraMode = null; st.key = uuid(); st.guestName = '';
       st.customer = null; st.guest = false; st.payMode = 'ACCOUNT';
       renderAll();
     } catch (e) { toastError(e); }
+  }
+
+  function servedBtn(orderId) {
+    const b = btn('✓ ' + t('mark_served'), async () => {
+      b.disabled = true;
+      try { await rpc('set_order_status', { p_order_id: orderId, p_status: 'SERVED' }); b.textContent = '✓ ' + t('served_done'); b.classList.remove('primary'); navigator.vibrate?.(15); }
+      catch (e) { b.disabled = false; toastError(e); }
+    }, 'primary');
+    return b;
   }
 
   function renderAll() { renderCustomer(); renderCart(); }
