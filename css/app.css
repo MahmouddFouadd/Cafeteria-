@@ -836,3 +836,8 @@ button, a, .pos-var, .chip, .tab, .pick-item { touch-action: manipulation; }
 .drawer-title, .handover h3 { font-size: 15px; margin: 16px 0 6px; }
 .handover { border-top: 1px dashed var(--line); margin-top: 14px; padding-top: 6px; display: grid; gap: 8px; }
 .cash-line.neg b { color: var(--bad); }
+
+/* ---------- Backup ---------- */
+.backup-progress { display: grid; gap: 6px; margin-top: 10px; }
+.bp-bar { height: 10px; border-radius: 99px; background: var(--primary-soft); overflow: hidden; }
+.bp-bar span { display: block; height: 100%; width: 0; background: var(--primary); transition: width .2s; }
