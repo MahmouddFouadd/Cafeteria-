@@ -647,3 +647,64 @@ a.kpi:hover { border-color: var(--primary); }
 }
 .pick-add { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .extra-box { display: grid; gap: 8px; }
+
+/* ---------- App feel: tap feedback, page transition ---------- */
+* { -webkit-tap-highlight-color: transparent; }
+button, a, .pos-var, .chip, .tab, .pick-item { touch-action: manipulation; }
+.btn, .pos-var, .chip, .tab, .pick-item, .qs, a.kpi, .choice { transition: transform .08s ease, background-color .15s ease, border-color .15s ease; }
+.btn:active:not(:disabled), .pos-var:active, .chip:active, .tab:active, .pick-item:active, .qs:active, a.kpi:active, .choice:active { transform: scale(.97); }
+.content > * { animation: page-in .16s ease-out both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .content > * { animation: none; }
+  .btn, .pos-var, .chip, .tab, .pick-item, .qs, a.kpi, .choice { transition: none; }
+}
+.btn.lg { min-height: 50px; font-size: 16px; }
+.q-card .btn.lg { width: 100%; }
+.chip.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* ---------- Bottom tab bar (phones / small tablets) ---------- */
+.tabbar { display: none; }
+@media (max-width: 960px) {
+  .shell.has-tabs .menu-btn { display: none; }
+  .tabbar {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+    position: fixed; inset-inline: 0; bottom: 0; z-index: 45;
+    background: rgba(255, 255, 255, .96); backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .tab {
+    display: grid; justify-items: center; gap: 2px; padding: 4px 2px;
+    background: none; border: 0; font: inherit; font-size: 11px; color: var(--muted);
+    text-decoration: none; cursor: pointer; border-radius: 10px; min-width: 0;
+  }
+  .tab span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .tab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tab.active { color: var(--primary); font-weight: 700; }
+  .tab.active svg { stroke-width: 2.3; }
+  .shell.has-tabs .content { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .shell.has-tabs .pos-mobile-bar { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+  .shell.has-tabs .side { padding-bottom: 80px; }
+}
+
+/* ---------- Simple "to serve" list ---------- */
+.queue.simple { grid-template-columns: minmax(0, 720px); justify-content: center; }
+.queue.simple .q-col { background: transparent; border: 0; padding: 0; }
+.queue.simple .q-open { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-content: start; }
+.queue.simple .q-open > h2, .queue.simple .q-empty { grid-column: 1 / -1; }
+.queue-strip.one { grid-template-columns: 1fr; }
+
+/* ---------- Settings choices ---------- */
+.choice-list { display: grid; gap: 10px; }
+.choice {
+  display: flex; align-items: flex-start; gap: 12px; text-align: start; width: 100%;
+  padding: 14px 16px; border: 1.5px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface); font: inherit; color: inherit; cursor: pointer;
+}
+.choice.on { border-color: var(--primary); background: var(--primary-soft); }
+.choice-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line-strong); flex: 0 0 auto; margin-top: 2px; }
+.choice.on .choice-dot { border-color: var(--primary); box-shadow: inset 0 0 0 4px var(--surface); background: var(--primary); }
+.choice-body { display: grid; gap: 4px; }
+.panel .chips { flex-wrap: wrap; }
+@media (max-width: 960px) { #toasts { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
