@@ -112,40 +112,91 @@ function langButton(onChange) {
   }, 'sm');
 }
 
-function renderLogin() {
-  const user = input({ autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', dir: 'ltr' });
-  const pass = input({ type: 'password', autocomplete: 'current-password', dir: 'ltr' });
-  const msg = h('div', { class: 'alert bad', hidden: true });
-  const submit = h('button', { class: 'btn primary', type: 'submit', style: { width: '100%' } }, t('login'));
+const LAST_USER_KEY = 'cafeteria-last-user';
+// Arabic-Indic / Persian digits → Latin, so "١٢٣" and "123" are the same
+const latinDigits = (v) => v.replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) => String((d.charCodeAt(0) & 0xF) % 10));
 
-  const form = h('form', { onsubmit: (e) => { e.preventDefault(); busy(submit, doLogin); } },
-    h('div', { style: { display: 'grid', gap: '14px' } },
-      field(t('username'), user), field(t('password'), pass), msg, submit));
+function loginArt() {
+  // Abstract arcs in the two brand colours (decorative only)
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 600 600'); svg.setAttribute('class', 'login-arcs'); svg.setAttribute('aria-hidden', 'true');
+  for (const [d, cls] of [
+    ['M40 420 C 160 120, 460 80, 560 260', 'arc-o'],
+    ['M80 520 C 260 380, 520 420, 560 120', 'arc-v'],
+    ['M20 300 C 200 260, 380 300, 580 480', 'arc-v thin'],
+  ]) { const path = document.createElementNS(ns, 'path'); path.setAttribute('d', d); path.setAttribute('class', cls); svg.append(path); }
+  return svg;
+}
+
+function renderLogin() {
+  let saved = '';
+  try { saved = localStorage.getItem(LAST_USER_KEY) || ''; } catch (_) {}
+  const user = input({ id: 'lg-user', value: saved, autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', dir: 'ltr', enterkeyhint: 'next', placeholder: t('username_ph') });
+  const pass = input({ id: 'lg-pass', type: 'password', autocomplete: 'current-password', dir: 'ltr', enterkeyhint: 'go' });
+  const eye = h('button', { type: 'button', class: 'pw-toggle', 'aria-label': t('show_password'), onclick: () => {
+    const show = pass.type === 'password';
+    pass.type = show ? 'text' : 'password';
+    eye.textContent = show ? t('hide') : t('show');
+    eye.setAttribute('aria-label', show ? t('hide_password') : t('show_password'));
+    pass.focus();
+  } }, t('show'));
+  const caps = h('div', { class: 'caps-hint', hidden: true }, t('caps_on'));
+  const onKey = (e) => { if (e.getModifierState) caps.hidden = !e.getModifierState('CapsLock'); };
+  pass.addEventListener('keyup', onKey); pass.addEventListener('keydown', onKey);
+  user.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); pass.focus(); } });
+
+  const remember = h('input', { type: 'checkbox', checked: !!saved });
+  const msg = h('div', { class: 'alert bad', hidden: true, role: 'alert' });
+  const submit = h('button', { class: 'btn primary lg', type: 'submit' }, t('login'));
+  const net = h('span', { class: 'dot ' + (navigator.onLine ? 'on' : 'off') }, navigator.onLine ? t('online') : t('network_off'));
+
+  const form = h('form', { class: 'login-form', novalidate: true, onsubmit: (e) => { e.preventDefault(); busy(submit, doLogin); } },
+    h('label', { class: 'field', for: 'lg-user' }, h('span', { class: 'label' }, t('username')), user),
+    h('label', { class: 'field', for: 'lg-pass' }, h('span', { class: 'label' }, t('password')),
+      h('div', { class: 'pw-wrap' }, pass, eye)),
+    caps,
+    h('label', { class: 'check' }, remember, h('span', null, t('remember_user'))),
+    msg, submit);
 
   async function doLogin() {
     msg.hidden = true;
-    const u = user.value.trim().toLowerCase();
-    if (!u || !pass.value) return;
+    let u = latinDigits(user.value).trim().toLowerCase().replace(/\s+/g, '');
+    const pw = latinDigits(pass.value);
+    if (!u) { user.focus(); msg.textContent = t('enter_username'); msg.hidden = false; return; }
+    if (!pw) { pass.focus(); msg.textContent = t('enter_password'); msg.hidden = false; return; }
+    if (!navigator.onLine) { msg.textContent = t('offline'); msg.hidden = false; return; }
     const email = u.includes('@') ? u : `${u}@${CONFIG.EMAIL_DOMAIN}`;
-    const { error } = await sb.auth.signInWithPassword({ email, password: pass.value });
-    if (error) { msg.textContent = errText(error); msg.hidden = false; return; }
+    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if (error) { msg.textContent = errText(error); msg.hidden = false; pass.select(); return; }
+    try {
+      if (remember.checked) localStorage.setItem(LAST_USER_KEY, u.split('@')[0]);
+      else localStorage.removeItem(LAST_USER_KEY);
+    } catch (_) {}
     try { await rpc('log_login', { p_client: navigator.userAgent.slice(0, 180) }); }
     catch (e) { msg.textContent = e.message; msg.hidden = false; await sb.auth.signOut(); return; }
     if (await loadProfile()) { location.hash = '#/home'; renderShell(); }
   }
 
   put(app, h('div', { class: 'login' },
-    h('section', { class: 'login-art' },
-      h('div', null, h('h1', null, t('app_title')), h('p', null, t('login_blurb'))),
-      h('div', { class: 'status-row' },
-        h('span', { class: 'dot ' + (navigator.onLine ? 'on' : 'off') }, t('network')))),
-    h('section', { class: 'login-panel' },
-      brandPlate(),
-      h('div', { style: { display: 'flex', alignItems: 'center' } },
-        h('h2', { style: { flex: 1 } }, t('login_title')), langButton(renderLogin)),
-      form,
-      h('p', { class: 'muted small', style: { margin: 0 } }, t('login_audit_note')))));
-  setTimeout(() => user.focus(), 50);
+    loginArt(),
+    h('main', { class: 'login-card' },
+      h('div', { class: 'login-brand' },
+        h('img', { src: 'assets/img/minapharm.png', alt: 'Minapharm' }),
+        h('span', { class: 'brand-sep', 'aria-hidden': 'true' }),
+        h('img', { src: 'assets/img/migentra.png', alt: 'Migentra', class: 'mig' })),
+      h('div', { class: 'login-body' },
+        h('div', { class: 'login-head' },
+          h('div', null,
+            h('h1', null, t('app_title')),
+            h('p', { class: 'muted' }, t('login_sub'))),
+          langButton(renderLogin)),
+        form,
+        h('div', { class: 'login-foot' },
+          net,
+          h('span', { class: 'muted small' }, t('session_note'))),
+        h('p', { class: 'muted small login-help' }, t('login_help'))))));
+  setTimeout(() => (saved ? pass : user).focus(), 60);
 }
 
 // ---------- Shell ----------
