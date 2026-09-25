@@ -337,9 +337,13 @@ export async function openConsumption(c) {
 }
 
 // ---------- Money dialogs ----------
-function amountDialog({ title, hint, okLabel, needReason = false, signed = false, extra = null, onOk }) {
+function amountDialog({ title, hint, okLabel, needReason = false, signed = false, extra = null, suggest = null, onOk }) {
   return new Promise((resolve) => {
     const amt = input({ type: 'number', step: '0.01', min: signed ? null : '0', inputmode: 'decimal' });
+    // one-tap amounts: the whole debt, plus round notes
+    const quick = suggest > 0 ? h('div', { class: 'chips' },
+      [[t('whole_due', { v: fmtMoney(suggest) }), suggest], ...[50, 100, 200, 500].filter((x) => x !== suggest).map((x) => [String(x), x])]
+        .map(([label, v]) => h('button', { type: 'button', class: 'chip', onclick: () => { amt.value = String(v); amt.focus(); } }, label))) : null;
     const note = h('textarea', { class: 'input', rows: 2 });
     let done = false;
     const okBtn = btn(okLabel, () => busy(okBtn, async () => {
@@ -353,7 +357,7 @@ function amountDialog({ title, hint, okLabel, needReason = false, signed = false
       title,
       body: h('div', { style: { display: 'grid', gap: '12px' } },
         hint ? h('div', { class: 'alert info' }, hint) : null, extra,
-        field(t('amount') + ' *', amt), field(needReason ? t('reason') + ' *' : t('notes'), note)),
+        field(t('amount') + ' *', amt), quick, field(needReason ? t('reason') + ' *' : t('notes'), note)),
       actions: [btn(t('cancel'), () => m.close()), okBtn],
       onClose: () => { if (!done) resolve(null); },
     });
@@ -361,8 +365,9 @@ function amountDialog({ title, hint, okLabel, needReason = false, signed = false
 }
 
 export async function depositFlow(c) {
+  const due = Math.max(-Number(c.balance) || 0, 0);
   const res = await amountDialog({
-    title: `${t('deposit')}: ${c.full_name}`, hint: t('deposit_hint'), okLabel: t('confirm_deposit'),
+    title: `${t('deposit')}: ${c.full_name}`, hint: t('deposit_hint'), okLabel: t('confirm_deposit'), suggest: due || null,
     onOk: async (v, n) => ({ ...(await rpc('deposit', { p_customer_id: c.id, p_amount: v, p_notes: n })), amount: v }),
   });
   if (res) {
