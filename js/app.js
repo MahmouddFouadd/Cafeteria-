@@ -8,6 +8,7 @@ import { session, canAny } from './session.js';
 import { deviceUsers, rememberDeviceUser, forgetDeviceUser, pinPassword } from './pin.js';
 
 import { settingsPage } from './pages/settings.js';
+import { reportsPage } from './pages/reports.js';
 import { mePage } from './pages/me.js';
 import { inventoryPage, INV_KEYS } from './pages/inventory.js';
 import { homePage } from './pages/home.js';
@@ -31,6 +32,7 @@ const app = document.getElementById('app');
 // ---------- Routes ----------
 const ROUTES = {
   'home':          { title: 'nav.home',      perms: null,                     render: homePage },
+  'reports':       { title: 'nav.reports',   perms: ['reports.sales', 'reports.financial', 'reports.inventory', 'reports.cost'], render: reportsPage },
   'me':            { title: 'nav.me',        perms: null,                     render: mePage },
   'inventory':     { title: 'nav.inventory', perms: ['inventory.view', 'inventory.purchase', 'inventory.transfer', 'inventory.issue', 'inventory.waste', 'inventory.adjust', 'inventory.materials'], render: inventoryPage },
   'pos':           { title: 'nav.pos',       perms: ['pos.create_order'],     render: posPage },
@@ -56,7 +58,7 @@ const ROUTES = {
 };
 
 const NAV = [
-  { title: null,               items: ['home'] },
+  { title: null,               items: ['home', 'reports'] },
   { title: 'nav.g.sales',      items: ['pos', 'queue', 'reception', 'orders', 'customers', 'closing'] },
   { title: 'nav.g.inventory',  items: ['inventory'] },
   { title: 'nav.g.catalog',    items: ['catalog', 'addons'] },
