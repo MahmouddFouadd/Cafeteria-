@@ -53,7 +53,24 @@ export const daysAgoISO = (n) => new Date(Date.now() - n * 864e5).toLocaleDateSt
 export const btn = (label, onclick, variant = '', extra = {}) =>
   h('button', { class: 'btn ' + variant, type: 'button', onclick, ...extra }, label);
 
-export const input = (props = {}) => h('input', { class: 'input' + (props.type === 'number' ? ' num' : ''), ...props });
+// Arabic-Indic / Persian digits and Arabic decimal marks → Latin
+export const latinNum = (v) => String(v ?? '')
+  .replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) => String((d.charCodeAt(0) & 0xF) % 10))
+  .replace(/[\u066B,\u060C]/g, '.');
+
+/** Number fields are text fields with a numeric keyboard: <input type=number> silently
+ *  drops Arabic digits (value becomes ''), so we accept them and convert on the fly. */
+export const input = (props = {}) => {
+  if (props.type !== 'number') return h('input', { class: 'input', ...props });
+  const { type, step, min, max, ...rest } = props;
+  const el = h('input', { class: 'input num', type: 'text', inputmode: 'decimal', autocomplete: 'off', dir: 'ltr', ...rest });
+  if (el.value) el.value = latinNum(el.value);
+  el.addEventListener('input', () => {
+    const v = latinNum(el.value).replace(/[^0-9.\-]/g, '');
+    if (v !== el.value) el.value = v;
+  });
+  return el;
+};
 
 export function select(options, value, props = {}) {
   const el = h('select', { class: 'input', ...props },
