@@ -11,11 +11,26 @@
   <link rel="icon" type="image/png" href="assets/img/icon.png">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
+  <!-- open connections early -->
+  <link rel="preconnect" href="https://zbvfggvwoatnznqcbxff.supabase.co" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- fonts load without blocking the first paint -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" onload="this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"></noscript>
   <link rel="stylesheet" href="css/app.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+  <!-- core modules fetched in parallel instead of one after another -->
+  <link rel="modulepreload" href="js/app.js">
+  <link rel="modulepreload" href="js/supabase.js">
+  <link rel="modulepreload" href="js/config.js">
+  <link rel="modulepreload" href="js/i18n.js">
+  <link rel="modulepreload" href="js/ui.js">
+  <link rel="modulepreload" href="js/api.js">
+  <link rel="modulepreload" href="js/store.js">
+  <link rel="modulepreload" href="js/session.js">
+  <link rel="modulepreload" href="js/pin.js">
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm" crossorigin>
 </head>
 <body>
   <div id="app"><div class="content muted">...</div></div>
@@ -24,6 +39,16 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+      // A newer version was published: offer a one-tap refresh
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        if (!e.data || e.data.type !== 'app-updated' || document.getElementById('upd-bar')) return;
+        var ar = (localStorage.getItem('lang') || 'ar') !== 'en';
+        var b = document.createElement('button');
+        b.id = 'upd-bar'; b.type = 'button'; b.className = 'update-bar';
+        b.textContent = ar ? 'فيه نسخة جديدة — دوس هنا للتحديث' : 'A new version is available — tap to update';
+        b.onclick = function () { location.reload(); };
+        document.body.appendChild(b);
+      });
     }
   </script>
 </body>
