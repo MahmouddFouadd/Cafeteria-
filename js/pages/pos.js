@@ -283,8 +283,28 @@ export async function posPage(root) {
     if (!st.person && !st.walkin) { payBox.append(h('div', { class: 'muted small' }, t('pick_person_first'))); return; }
     if (cashOnly()) {
       const recv = input({ type: 'number', value: st.cashRecv, placeholder: fmtMoney(tot) });
-      const change = h('div', { class: 'muted' });
-      const upd = () => { const c = received(tot) - tot; change.textContent = c > 0 ? `${t('change_due')}: ${fmtMoney(c)}` : ''; };
+      const change = h('div', { class: 'extra-box' });
+      // A registered person paying cash can leave the change in their own account (available at the buffet later)
+      const canKeep = !st.walkin && st.person && can('accounts.deposit');
+      const upd = () => {
+        clear(change);
+        const c = received(tot) - tot;
+        if (c <= 0) return;
+        if (!canKeep) { change.append(h('div', { class: 'muted' }, `${t('change_due')}: ${fmtMoney(c)}`)); return; }
+        const bal = Number(st.person.balance);
+        if (!st.extraMode) st.extraMode = bal < 0 ? 'ACCOUNT' : 'CHANGE';
+        change.append(
+          h('div', { class: 'muted small' }, t('extra_cash', { v: fmtMoney(c) })),
+          h('div', { class: 'seg sm' }, ['ACCOUNT', 'CHANGE'].map((md) => h('button', {
+            type: 'button', class: st.extraMode === md ? 'on' : '', onclick: () => { st.extraMode = md; upd(); },
+          }, t('extra.' + md)))));
+        if (st.extraMode === 'ACCOUNT') {
+          const pays = bal < 0 ? Math.min(c, -bal) : 0;
+          change.append(h('div', { class: 'small' },
+            pays > 0 ? t('extra_pays_debt', { v: fmtMoney(pays) }) + ' — ' : '',
+            `${t('balance_after')}: `, balanceBlock(bal + c)));
+        } else change.append(h('div', { class: 'small' }, `${t('change_due')}: ${fmtMoney(c)}`));
+      };
       recv.addEventListener('input', () => { st.cashRecv = recv.value; upd(); });
       upd();
       payBox.append(field(t('cash_received'), recv), change);
@@ -347,19 +367,21 @@ export async function posPage(root) {
       cash = received(tot);
       if (cash < tot) { toast(t('cash_not_enough'), 'warn'); return; }
     } else if (canCash && st.payMode !== 'ACCOUNT') cash = received(tot);
-    const extraToAccount = !cashOnly() && st.payMode !== 'ACCOUNT' && cash > tot && st.extraMode === 'ACCOUNT';
+    // "Cash now" but the person leaves the change in their account → the order is paid in cash, the rest is deposited
+    const keepInAccount = cashOnly() && !st.walkin && st.person && can('accounts.deposit') && cash > tot && st.extraMode === 'ACCOUNT';
+    const extraToAccount = keepInAccount || (!cashOnly() && st.payMode !== 'ACCOUNT' && cash > tot && st.extraMode === 'ACCOUNT');
 
     const items = st.cart.map((l) => ({ variant_id: l.variant.id, qty: l.qty, addons: l.addons.map((a) => a.id), notes: l.notes || null,
       ...(l.machine ? { price: Number(l.price), name: l.name } : {}) }));
     try {
       const res = await rpc('create_order', {
         p_items: items,
-        p_customer_id: cashOnly() ? null : st.customer.id,
+        p_customer_id: keepInAccount ? st.person.id : (cashOnly() ? null : st.customer.id),
         p_guest_name: st.walkin ? (st.guestName.trim() || null) : null,
         p_cash: cash, p_notes: null, p_idempotency_key: st.key, p_extra_to_account: extraToAccount,
         p_consumer_id: st.person?.id ?? null,
       });
-      const change = (cashOnly() || (st.payMode !== 'ACCOUNT' && !extraToAccount)) ? Math.max(cash - tot, 0) : 0;
+      const change = extraToAccount ? 0 : ((cashOnly() || st.payMode !== 'ACCOUNT') ? Math.max(cash - tot, 0) : 0);
       const who = st.person ? st.person.full_name : (st.guestName.trim() || t('guest'));
       const payerNote = st.person && st.customer && st.customer.id !== st.person.id ? ` — ${t('charged_to', { n: st.customer.full_name })}` : '';
       toast(t('order_created', { no: res.order_no }), 'ok', 5000);
