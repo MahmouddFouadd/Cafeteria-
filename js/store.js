@@ -43,3 +43,22 @@ export function unitsForMaterial(materialId) {
 }
 export const purchaseUnit = (materialId) => unitsForMaterial(materialId).find((u) => u.purchase) || null;
 export const factorOf = (materialId, unitId) => unitsForMaterial(materialId).find((u) => u.unit_id === unitId)?.factor ?? null;
+
+// ---------- App settings (app_settings table) ----------
+export const settings = { loaded: false, map: {} };
+export async function loadSettings(force = false) {
+  if (settings.loaded && !force) return settings.map;
+  const rows = await q(sb.from('app_settings').select('key,value'));
+  settings.map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  settings.loaded = true;
+  try { if (settings.map.idle_minutes) localStorage.setItem('cafeteria-idle-min', String(settings.map.idle_minutes)); } catch (_) {}
+  return settings.map;
+}
+export const setting = (k, d) => (settings.map[k] !== undefined && settings.map[k] !== null ? settings.map[k] : d);
+/** Preparation stage (new → preparing → ready → served). Off = order, then one "served" tap. */
+export const usePrep = () => setting('use_preparation', false) === true;
+export async function saveSetting(k, v) {
+  await q(sb.from('app_settings').upsert({ key: k, value: v }).select('key'));
+  settings.map[k] = v;
+  if (k === 'idle_minutes') { try { localStorage.setItem('cafeteria-idle-min', String(v)); } catch (_) {} }
+}

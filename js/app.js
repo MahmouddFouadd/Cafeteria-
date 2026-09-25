@@ -3,9 +3,10 @@ import { CONFIG } from './config.js';
 import { t, lang, setLang } from './i18n.js';
 import { h, put, clear, btn, input, field, toast, toastError, busy } from './ui.js';
 import { rpc, errText } from './api.js';
-import { loadRefs } from './store.js';
+import { loadRefs, loadSettings, usePrep } from './store.js';
 import { session, canAny } from './session.js';
 
+import { settingsPage } from './pages/settings.js';
 import { homePage } from './pages/home.js';
 import { stockPage } from './pages/stock.js';
 import { movementsPage } from './pages/movements.js';
@@ -45,6 +46,7 @@ const ROUTES = {
   'materials':     { title: 'nav.materials', perms: ['inventory.view', 'inventory.materials'], render: materialsPage },
   'catalog':       { title: 'nav.catalog',   perms: ['catalog.manage', 'recipes.manage', 'prices.change'], render: catalogPage },
   'addons':        { title: 'nav.addons',    perms: ['catalog.manage'],       render: addonsPage },
+  'settings':      { title: 'nav.settings',  perms: ['settings.manage'],      render: settingsPage },
   'master':        { title: 'nav.master',    perms: ['inventory.materials', 'catalog.manage'], render: masterPage },
 };
 
@@ -53,9 +55,10 @@ const NAV = [
   { title: 'nav.g.sales',      items: ['pos', 'queue', 'reception', 'orders', 'customers', 'closing'] },
   { title: 'nav.g.inventory',  items: ['stock', 'docs/purchase', 'docs/transfer', 'docs/issue', 'docs/waste', 'counts', 'docs', 'movements', 'materials'] },
   { title: 'nav.g.catalog',    items: ['catalog', 'addons'] },
-  { title: 'nav.g.settings',   items: ['master', 'docs/opening'] },
+  { title: 'nav.g.settings',   items: ['settings', 'master', 'docs/opening'] },
 ];
 
+const routeTitle = (key) => (key === 'queue' && !usePrep() ? t('nav.queue_simple') : t(ROUTES[key].title));
 const allowed = (key) => { const r = ROUTES[key]; return r && (!r.perms || canAny(r.perms)); };
 
 // ---------- Boot ----------
@@ -71,7 +74,7 @@ async function boot() {
   }
   const { data } = await sb.auth.getSession();
   if (data.session && idleExpired()) { await signOutNow('idle'); return; }
-  if (data.session && await loadProfile()) renderShell();
+  if (data.session && await loadProfile()) { await loadSettings().catch(() => {}); renderShell(); }
   else renderLogin();
 }
 
@@ -151,7 +154,7 @@ function renderLogin() {
   const msg = h('div', { class: 'alert bad', hidden: true, role: 'alert' });
   let reason = null;
   try { reason = sessionStorage.getItem(REASON_KEY); sessionStorage.removeItem(REASON_KEY); } catch (_) {}
-  const info = reason === 'idle' ? h('div', { class: 'alert warn', role: 'status' }, t('idle_logged_out', { m: IDLE_MIN })) : null;
+  const info = reason === 'idle' ? h('div', { class: 'alert warn', role: 'status' }, t('idle_logged_out', { m: idleMin() })) : null;
   const submit = h('button', { class: 'btn primary lg', type: 'submit' }, t('login'));
   const net = h('span', { class: 'dot ' + (navigator.onLine ? 'on' : 'off') }, navigator.onLine ? t('online') : t('network_off'));
 
@@ -179,7 +182,7 @@ function renderLogin() {
     } catch (_) {}
     try { await rpc('log_login', { p_client: navigator.userAgent.slice(0, 180) }); }
     catch (e) { msg.textContent = e.message; msg.hidden = false; await sb.auth.signOut(); return; }
-    if (await loadProfile()) { location.hash = '#/home'; renderShell(); }
+    if (await loadProfile()) { await loadSettings().catch(() => {}); location.hash = '#/home'; renderShell(); }
   }
 
   put(app, h('div', { class: 'login' },
@@ -198,19 +201,23 @@ function renderLogin() {
         form,
         h('div', { class: 'login-foot' },
           net,
-          h('span', { class: 'muted small' }, t('session_note', { m: IDLE_MIN }))),
+          h('span', { class: 'muted small' }, t('session_note', { m: idleMin() }))),
         h('p', { class: 'muted small login-help' }, t('login_help'))))));
   setTimeout(() => (saved ? pass : user).focus(), 60);
 }
 
 // ---------- Auto sign-out after inactivity ----------
-const IDLE_MIN = Number(CONFIG.IDLE_MINUTES) || 30;
+const idleMin = () => {
+  let v = 0;
+  try { v = Number(localStorage.getItem('cafeteria-idle-min')); } catch (_) {}
+  return v || Number(CONFIG.IDLE_MINUTES) || 30;
+};
 const ACT_KEY = 'cafeteria-last-activity';
 const REASON_KEY = 'cafeteria-logout-reason';
 let idleTimer = null, lastMark = 0;
 const markActive = () => { try { sessionStorage.setItem(ACT_KEY, String(Date.now())); } catch (_) {} };
 const lastActive = () => Number(sessionStorage.getItem(ACT_KEY)) || 0;
-const idleExpired = () => { const la = lastActive(); return la > 0 && Date.now() - la > IDLE_MIN * 60000; };
+const idleExpired = () => { const la = lastActive(); return la > 0 && Date.now() - la > idleMin() * 60000; };
 function onActivity() { const n = Date.now(); if (n - lastMark > 15000) { lastMark = n; markActive(); } }
 async function signOutNow(reason) {
   clearInterval(idleTimer);
@@ -238,7 +245,7 @@ function renderShell() {
     if (!items.length) continue;
     nav.append(h('div', { class: 'nav-group' },
       g.title ? h('div', { class: 'nav-group-title' }, t(g.title)) : null,
-      items.map((k) => h('a', { href: '#/' + k, 'data-route': k }, t(ROUTES[k].title)))));
+      items.map((k) => h('a', { href: '#/' + k, 'data-route': k }, routeTitle(k)))));
   }
   const title = h('h1');
   const content = h('div', { class: 'content', id: 'content' });
@@ -265,11 +272,33 @@ function renderShell() {
           h('button', { type: 'button', class: 'btn sm logout-btn', title: t('logout'), onclick: () => signOutNow() },
             h('span', { class: 'logout-ico', 'aria-hidden': 'true' }, '⎋'), h('span', { class: 'logout-txt' }, t('logout'))))),
       content));
+  // Phone-style bottom tabs (mobile only); "More" opens the full menu
+  const ICONS = {
+    home: 'M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+    pos: 'M5 8h14l-1.2 11.1a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9zM9 8V6a3 3 0 0 1 6 0v2',
+    queue: 'M4 6h16M4 12h16M4 18h9M16 17l2 2 4-4',
+    reception: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
+    stock: 'M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10',
+    orders: 'M7 4h10l2 3v13H5V7zM9 11h6M9 15h6',
+    more: 'M5 12h.01M12 12h.01M19 12h.01',
+  };
+  const icon = (k) => {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(ns, 'path'); path.setAttribute('d', ICONS[k]); svg.append(path); return svg;
+  };
+  const tabKeys = ['home', 'pos', 'queue', 'reception', 'stock', 'orders'].filter(allowed).slice(0, 4);
+  const tabs = h('nav', { class: 'tabbar', 'aria-label': t('menu') },
+    tabKeys.map((k) => h('a', { href: '#/' + k, 'data-route': k, class: 'tab' }, icon(k), h('span', null, routeTitle(k)))),
+    h('button', { type: 'button', class: 'tab', onclick: (e) => { e.stopPropagation(); shell.classList.toggle('nav-open'); } }, icon('more'), h('span', null, t('nav_more'))));
+  shell.append(tabs);
+  shell.classList.add('has-tabs');
+
   shell.addEventListener('click', (e) => {
     if (e.target === shell || e.target.closest('.nav a')) shell.classList.remove('nav-open');
   });
   put(app, shell);
-  shellEls = { title, content, nav };
+  shellEls = { title, content, nav, tabs };
   startIdleWatch();
   route();
 }
@@ -281,8 +310,9 @@ async function route() {
   document.querySelector('.shell')?.classList.remove('nav-open');
   const r = ROUTES[key];
   shellEls.nav.querySelectorAll('a').forEach((a) => a.classList.toggle('active', a.dataset.route === key));
-  shellEls.title.textContent = t(r.title);
-  document.title = `${t(r.title)} | ${t('app_title')}`;
+  shellEls.title.textContent = routeTitle(key);
+  document.title = `${routeTitle(key)} | ${t('app_title')}`;
+  shellEls.tabs?.querySelectorAll('[data-route]').forEach((a) => a.classList.toggle('active', a.dataset.route === key));
   const root = clear(shellEls.content);
   try { await r.render(root); }
   catch (e) { root.append(h('div', { class: 'alert bad' }, errText(e))); }
