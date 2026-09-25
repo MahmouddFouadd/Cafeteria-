@@ -140,8 +140,13 @@ export async function posPage(root) {
       payBox.append(field(t('cash_received'), cashIn), change);
       return;
     }
-    const modes = canCash ? ['ACCOUNT', 'CASH', 'MIXED'] : ['ACCOUNT'];
-    payBox.append(h('div', { class: 'seg' }, modes.map((md) => h('button', {
+    if (!canCash) {
+      // This role can't take cash (single cashier): say so instead of showing a lone button
+      st.payMode = 'ACCOUNT';
+      payBox.append(h('div', { class: 'alert info small' }, t('account_only_note')));
+    }
+    const modes = canCash ? ['ACCOUNT', 'CASH', 'MIXED'] : [];
+    if (modes.length) payBox.append(h('div', { class: 'seg' }, modes.map((md) => h('button', {
       type: 'button', class: st.payMode === md ? 'on' : '', onclick: () => { st.payMode = md; st.cashRecv = ''; st.extraMode = null; renderPay(); },
     }, t('pay.' + md)))));
     // CASH: default = the total; MIXED: default = 0 (the rest goes on the account).
