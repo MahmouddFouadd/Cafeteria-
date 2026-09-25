@@ -47,7 +47,20 @@ export async function settingsPage(root) {
         h('span', { class: 'muted small' }, t(v ? 'set_serve_auto_hint' : 'set_serve_manual_hint'))))));
   }
 
-  drawFlow(); drawIdle(); drawServe();
+  const cashBox = h('div', { class: 'choice-list' });
+  function drawCash() {
+    const on = setting('buffet_cash', true) === true;
+    put(cashBox, [true, false].map((v) => h('button', {
+      type: 'button', class: 'choice' + (on === v ? ' on' : ''), onclick: async () => {
+        if (on === v) return;
+        try { await saveSetting('buffet_cash', v); toast(t('saved'), 'ok'); drawCash(); } catch (e) { toastError(e); }
+      },
+    }, h('span', { class: 'choice-dot', 'aria-hidden': 'true' }),
+      h('span', { class: 'choice-body' }, h('b', null, t(v ? 'set_bcash_on' : 'set_bcash_off')),
+        h('span', { class: 'muted small' }, t(v ? 'set_bcash_on_hint' : 'set_bcash_off_hint'))))));
+  }
+
+  drawFlow(); drawIdle(); drawServe(); drawCash();
   root.append(
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('set_flow_title'))),
@@ -56,6 +69,8 @@ export async function settingsPage(root) {
     usePrep() ? null : h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('set_serve_title'))),
       h('div', { class: 'choice-list' }, serveBox)),
+    h('section', { class: 'panel' },
+      h('div', { class: 'panel-head' }, h('h2', null, t('set_bcash_title'))), cashBox),
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('set_idle_title'))),
       h('p', { class: 'muted small' }, t('set_idle_desc')),

@@ -5,7 +5,7 @@ import { q, rpc, errText } from '../api.js';
 import { can } from '../session.js';
 import { balanceBlock, openLedger, openConsumption } from '../sales.js';
 
-const TYPES = ['EMPLOYEE', 'VISITOR', 'CONTRACTOR', 'OTHER'];
+const TYPES = ['EMPLOYEE', 'VISITOR', 'TRAINEE', 'CONTRACTOR', 'OTHER'];
 const STATUSES = ['ACTIVE', 'SUSPENDED', 'CLOSED'];
 
 export async function customersPage(root) {
@@ -72,6 +72,7 @@ export async function customersPage(root) {
     const type = select(TYPES.map((x) => [x, t('ct.' + x)]), r?.customer_type ?? 'EMPLOYEE');
     const dept = select([['', '—'], ...depts.filter((d) => d.active || d.id === r?.department_id).map((d) => [d.id, deptName(d.id)])], r?.department_id ?? '');
     const phone = input({ value: r?.phone ?? '', dir: 'ltr', inputmode: 'tel' });
+    const company = input({ value: r?.company ?? '', placeholder: t('company_ph') });
     const limit = input({ type: 'number', step: '0.01', min: '0', value: r?.credit_limit ?? '', placeholder: t('credit_limit_ph') });
     const status = select(STATUSES.map((x) => [x, t('cs.' + x)]), r?.status ?? 'ACTIVE');
     const notes = h('textarea', { class: 'input', rows: 2 }, r?.notes ?? '');
@@ -80,7 +81,7 @@ export async function customersPage(root) {
       if (!code.value.trim() || !name.value.trim()) { toast(t('required_fields'), 'warn'); return; }
       const v = { full_name: name.value.trim(), customer_type: type.value, department_id: dept.value ? Number(dept.value) : null,
         phone: phone.value.trim() || null, credit_limit: limit.value === '' ? null : Number(limit.value), status: status.value,
-        notes: notes.value.trim() || null };
+        notes: notes.value.trim() || null, company: company.value.trim() || null };
       try {
         if (isNew) {
           const [c] = await q(sb.from('customers').insert({ ...v, code: code.value.trim() }).select());
@@ -95,7 +96,7 @@ export async function customersPage(root) {
       title: isNew ? t('new_customer') : `${t('edit')}: ${r.full_name}`,
       body: h('div', { class: 'form-grid' },
         field(t('employee_code') + ' *', code), field(t('name') + ' *', name), field(t('type'), type), field(t('department'), dept),
-        field(t('phone'), phone), field(t('credit_limit'), limit), field(t('status'), status),
+        field(t('phone'), phone), field(t('company'), company), field(t('credit_limit'), limit), field(t('status'), status),
         opening ? field(t('opening_balance'), opening) : null,
         field(t('notes'), notes, 'span-all'),
         h('p', { class: 'muted small span-all', style: { margin: 0 } }, t('credit_limit_hint'))),

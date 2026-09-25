@@ -11,7 +11,7 @@ export async function receptionPage(root) {
   const today = h('section', { class: 'panel' });
   let current = null;
 
-  const picker = customerPicker({ onPick: (r) => show(r.id), autofocus: true, activeOnly: false });
+  const picker = customerPicker({ onPick: (r) => show(r.id), autofocus: true, activeOnly: false, people: false });
   root.append(
     h('section', { class: 'panel' }, h('h2', null, t('find_customer')), picker.el),
     cardBox, today);
