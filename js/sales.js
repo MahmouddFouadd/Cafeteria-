@@ -9,7 +9,16 @@ import { can } from './session.js';
 export const nmSnap = (o, base) => (lang() === 'en' && o[base + '_en_snap'] ? o[base + '_en_snap'] : o[base + '_ar_snap']);
 export const lineName = (l) => (l.variant_name_en_snap === 'Regular' ? nmSnap(l, 'product_name') : `${nmSnap(l, 'product_name')} — ${nmSnap(l, 'variant_name')}`);
 export const addonsText = (l) => (l.addons || []).map((a) => (lang() === 'en' && a.name_en ? a.name_en : a.name_ar)).join('، ');
-export const customerLabel = (o) => (o.customer_id ? `${o.customer_name} (${o.customer_code})` : (o.guest_name || t('guest')));
+export const customerLabel = (o) => {
+  const who = o.consumer_id ? `${o.consumer_name} (${o.consumer_code})`
+    : (o.customer_id ? `${o.customer_name} (${o.customer_code})` : (o.guest_name || t('guest')));
+  if (o.consumer_id && o.customer_id && o.consumer_id !== o.customer_id) return `${who} — ${t('charged_to', { n: o.customer_name })}`;
+  if (o.consumer_id && !o.customer_id) return `${who} — ${t('paid_cash')}`;
+  return who;
+};
+/** Small label under a person's name: type · department · company */
+export const personMeta = (r) => [r.customer_type && r.customer_type !== 'EMPLOYEE' ? t('ct.' + r.customer_type) : null, r.code,
+  r.department_ar ? (lang() === 'en' && r.department_en ? r.department_en : r.department_ar) : null, r.company].filter(Boolean).join(' · ');
 
 export const payBadge = (s) => badge(t('ps.' + s), { PAID: 'ok', PARTIALLY_PAID: 'warn', UNPAID: 'bad', REFUNDED: '' }[s] || '');
 export const fulfilBadge = (s) => badge(t('fs.' + s), { NEW: 'info', PREPARING: 'warn', READY: 'ok', SERVED: '', CANCELLED: 'bad' }[s] || '');
@@ -24,11 +33,12 @@ export function balanceBlock(bal) {
 
 const cleanTerm = (s) => s.replace(/[,()%*\\]/g, ' ').trim();
 
-export async function searchCustomers(term, { activeOnly = true, limit = 8 } = {}) {
+export async function searchCustomers(term, { activeOnly = true, limit = 8, people = true } = {}) {
   const s = cleanTerm(term);
   if (!s) return [];
-  let qb = sb.from('v_customer_summary').select('*').or(`code.ilike.${s}%,full_name.ilike.%${s}%`).order('full_name').limit(limit);
+  let qb = sb.from('v_customer_summary').select('*').or(`code.ilike.${s}%,full_name.ilike.%${s}%,company.ilike.%${s}%`).order('full_name').limit(limit);
   if (activeOnly) qb = qb.eq('status', 'ACTIVE');
+  if (people) qb = qb.neq('customer_type', 'DEPARTMENT');
   return q(qb);
 }
 
@@ -47,7 +57,7 @@ async function departmentsList() {
 }
 let pickerSeq = 0;
 
-export function customerPicker({ onPick, placeholder, autofocus = false, activeOnly = true }) {
+export function customerPicker({ onPick, placeholder, autofocus = false, activeOnly = true, people = true }) {
   const inp = input({ type: 'search', placeholder: placeholder || t('customer_search_ph'), autocomplete: 'off', enterkeyhint: 'search' });
   const list = h('div', { class: 'pick-list', role: 'listbox' });
   const canAdd = can('customers.quick_add') || can('customers.manage');
@@ -55,12 +65,12 @@ export function customerPicker({ onPick, placeholder, autofocus = false, activeO
   const run = async () => {
     const my = ++seq;
     try {
-      rows = await searchCustomers(inp.value, { activeOnly });
+      rows = await searchCustomers(inp.value, { activeOnly, people });
       if (my !== seq) return;
       const term = inp.value.trim();
       if (rows.length) {
         put(list, rows.map((r) => h('button', { type: 'button', class: 'pick-item', role: 'option', onclick: () => choose(r) },
-          h('div', null, h('b', null, r.full_name), h('span', { class: 'muted small' }, ` ${r.code}${r.department_ar ? ' · ' + (lang() === 'en' && r.department_en ? r.department_en : r.department_ar) : ''}`)),
+          h('div', null, h('b', null, r.full_name), h('span', { class: 'muted small' }, ' ' + personMeta(r))),
           balanceBlock(r.balance))));
       } else if (term && canAdd) {
         // Don't open the form while the user is still typing: offer a button instead
@@ -75,8 +85,10 @@ export function customerPicker({ onPick, placeholder, autofocus = false, activeO
 
   async function quickAddForm(term) {
     const looksLikeCode = /\d/.test(term) && !/\s/.test(term);
+    let type = 'EMPLOYEE';
     const codeIn = input({ value: looksLikeCode ? term : '', placeholder: t('code'), autocomplete: 'off' });
     const nameIn = input({ value: looksLikeCode ? '' : term, placeholder: t('qa_name_ph'), autocomplete: 'off' });
+    const companyIn = input({ placeholder: t('company_ph'), autocomplete: 'off' });
     const dlId = 'qa-depts-' + (++pickerSeq);
     const depts = await departmentsList().catch(() => []);
     const deptIn = input({ placeholder: t('qa_dept_ph'), autocomplete: 'off', list: dlId });
@@ -88,21 +100,36 @@ export function customerPicker({ onPick, placeholder, autofocus = false, activeO
       } }, label);
     }));
     deptIn.oninput = () => chips.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.textContent === deptIn.value.trim()));
+    const codeField = field(t('code'), codeIn);
+    const companyField = field(t('company'), companyIn);
+    const codeHint = h('div', { class: 'muted small' }, t('qa_code_optional'));
+    const typeBar = h('div', { class: 'seg sm qa-types' });
+    const drawType = () => {
+      put(typeBar, ['EMPLOYEE', 'VISITOR', 'TRAINEE', 'CONTRACTOR'].map((ty) => h('button', { type: 'button', class: type === ty ? 'on' : '',
+        onclick: () => { type = ty; drawType(); } }, t('ct.' + ty))));
+      companyField.hidden = type === 'EMPLOYEE';
+      codeHint.hidden = type === 'EMPLOYEE';
+    };
+    drawType();
     const addBtn = btn(t('qa_add_pick'), () => busy(addBtn, async () => { try {
-      if (!codeIn.value.trim()) { codeIn.focus(); return toast(t('err.CODE_REQUIRED'), 'bad'); }
+      if (type === 'EMPLOYEE' && !codeIn.value.trim()) { codeIn.focus(); return toast(t('err.CODE_REQUIRED'), 'bad'); }
       if (!nameIn.value.trim()) { nameIn.focus(); return toast(t('err.NAME_REQUIRED'), 'bad'); }
-      const res = await rpc('quick_add_customer', { p_code: codeIn.value.trim(), p_full_name: nameIn.value.trim(), p_department: deptIn.value.trim() || null });
+      const res = await rpc('quick_add_customer', {
+        p_code: codeIn.value.trim() || null, p_full_name: nameIn.value.trim(), p_department: deptIn.value.trim() || null,
+        p_type: type, p_company: type === 'EMPLOYEE' ? null : (companyIn.value.trim() || null),
+      });
       if (res.new_department) deptCache = null;
       const row = await loadCustomer(res.id);
       toast(t('qa_added'), 'ok');
       if (row) choose(row);
     } catch (err) { toastError(err); } }), 'primary');
-    [codeIn, nameIn, deptIn].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } }));
+    [codeIn, nameIn, deptIn, companyIn].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } }));
     setTimeout(() => (looksLikeCode ? nameIn : codeIn).focus(), 50);
     return h('div', { class: 'quick-add' },
       h('div', { class: 'qa-title' }, t('qa_title')),
-      h('div', { class: 'qa-grid' },
-        field(t('code'), codeIn), field(t('name'), nameIn)),
+      typeBar,
+      h('div', { class: 'qa-grid' }, codeField, field(t('name'), nameIn)),
+      codeHint, companyField,
       field(t('department'), deptIn), dl, chips,
       h('div', { class: 'muted small' }, t('qa_dept_hint')),
       h('div', { class: 'form-actions' }, addBtn));

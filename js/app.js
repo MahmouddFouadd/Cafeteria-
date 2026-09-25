@@ -63,6 +63,9 @@ const NAV = [
   { title: 'nav.g.settings',   items: ['me', 'settings', 'master'] },
 ];
 
+// Where each role starts: the buffet records, reception collects, the store keeps stock
+const LANDING = { BARISTA: 'pos', RECEPTION: 'reception', STOREKEEPER: 'inventory' };
+const landing = () => { const k = LANDING[session.profile?.role]; return k && allowed(k) ? k : 'home'; };
 const routeTitle = (key) => (key === 'queue' && !usePrep() ? t('nav.queue_simple') : t(ROUTES[key].title));
 const allowed = (key) => { const r = ROUTES[key]; return r && (!r.perms || canAny(r.perms)); };
 
@@ -149,7 +152,7 @@ async function signIn(username, password, { remember = true } = {}) {
   if (!(await loadProfile())) return t('err.USER_INACTIVE');
   if (remember) rememberDeviceUser(session.profile); else forgetDeviceUser(session.profile.username);
   await loadSettings().catch(() => {});
-  location.hash = '#/home';
+  location.hash = '#/' + landing();
   renderShell();
   return null;
 }
@@ -387,7 +390,7 @@ function renderShell() {
 
 async function route() {
   if (!session.profile || !shellEls) return;
-  let key = location.hash.replace(/^#\/?/, '').split('?')[0] || 'home';
+  let key = location.hash.replace(/^#\/?/, '').split('?')[0] || landing();
   if (!allowed(key)) key = 'home';
   document.querySelector('.shell')?.classList.remove('nav-open');
   const r = ROUTES[key];
