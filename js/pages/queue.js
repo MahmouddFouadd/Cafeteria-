@@ -21,8 +21,27 @@ function beep() {
 
 export async function queuePage(root) {
   const board = h('div', { class: 'queue' });
+  // served app orders whose cash was never recorded (safety net for older versions)
+  const missing = h('div');
+  async function loadMissing() {
+    try {
+      const rows = await q(sb.from('v_orders').select('*').eq('source', 'SELF').eq('pay_request', 'CASH')
+        .eq('fulfillment_status', 'SERVED').is('cash_collected_at', null).order('id').limit(50));
+      put(missing, rows.length ? h('section', { class: 'panel' },
+        h('div', { class: 'panel-head' }, h('h2', null, t('self_cash_missing_title'))),
+        h('p', { class: 'muted small' }, t('self_cash_missing_hint')),
+        rows.map((o) => {
+          const b = btn(t('self_cash_collect', { v: fmtMoney(o.total) }), () => busy(b, async () => {
+            try { await rpc('self_cash_served', { p_order_id: o.id }); await loadMissing(); } catch (e) { toastError(e); }
+          }), 'primary');
+          return h('div', { class: 'row', style: { justifyContent: 'space-between', gap: '8px', padding: '8px 0', borderBottom: '1px solid var(--line)' } },
+            h('div', null, h('b', null, o.order_no), ' ', customerLabel(o)), b);
+        })) : null);
+    } catch (_) { /* optional */ }
+  }
+
   const stamp = h('span', { class: 'muted small' });
-  root.append(h('div', { class: 'toolbar' }, h('div', { class: 'grow' }, stamp), btn(t('refresh'), () => load())), board);
+  root.append(h('div', { class: 'toolbar' }, h('div', { class: 'grow' }, stamp), btn(t('refresh'), () => load())), board, missing);
 
   let known = null;
   async function load() {
@@ -35,6 +54,7 @@ export async function queuePage(root) {
       if (known && fresh.some((id) => !known.has(id))) beep();
       known = new Set(fresh);
       render(orders, lines);
+      loadMissing();
       stamp.textContent = `${t('updated_at')}: ${fmtDateTime(new Date())}`;
     } catch (e) { toastError(e); }
   }
