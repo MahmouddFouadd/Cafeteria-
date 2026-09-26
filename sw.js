@@ -75,7 +75,7 @@ self.addEventListener('push', (e) => {
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: 'البوفيه', body: e.data ? e.data.text() : '' }; }
   e.waitUntil(self.registration.showNotification(d.title || 'البوفيه', {
     body: d.body || '', tag: d.tag, renotify: true, dir: 'rtl', lang: 'ar',
-    icon: 'assets/img/icon-192.png', badge: 'assets/img/icon-192.png', vibrate: [200, 100, 200],
+    icon: 'assets/img/icon-192.png', badge: 'assets/img/badge-96.png', vibrate: [200, 100, 200],
     data: { url: d.url || 'order.html' },
   }));
 });
