@@ -75,10 +75,38 @@ function beep() {
     [0, 0.25].forEach((t0) => { const o = c.createOscillator(); const g = c.createGain(); o.frequency.value = 880; g.gain.value = 0.1; o.connect(g); g.connect(c.destination); o.start(c.currentTime + t0); o.stop(c.currentTime + t0 + 0.15); });
   } catch (_) { /* optional */ }
 }
+// ---------- push (arrives even when the app is closed) ----------
+let pushOn = false;
+function b64ToBytes(b64) {
+  const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+async function ensurePush() {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || Notification.permission !== 'granted') return false;
+    const key = await rpc('self_vapid_key');
+    if (!key) return false;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key) });
+    const j = sub.toJSON();
+    await rpc('self_push_subscribe', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
+    pushOn = true;
+    return true;
+  } catch (e) { console.warn('push', e); return false; }
+}
+async function askNotifications() {
+  if (!('Notification' in window)) return;
+  const r = await Notification.requestPermission();
+  if (r === 'granted') { const ok = await ensurePush(); toast(ok ? 'تمام، هيوصلك إشعار حتى لو التطبيق مقفول.' : 'الإشعارات شغالة والتطبيق مفتوح.', 'ok'); }
+}
+
 async function notify(title, body, tag) {
   navigator.vibrate?.([200, 100, 200]);
   beep();
   toast(`${title} — ${body}`, 'ok');
+  if (pushOn) return;                      // the push already shows the system notification
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   try {
     const reg = await navigator.serviceWorker?.ready;
@@ -157,7 +185,7 @@ function renderRegister(prefill = {}) {
       const res = await rpc('self_register', { p_code: code.value.trim(), p_name: name.value.trim(), p_user_agent: navigator.userAgent.slice(0, 300) });
       if (res?.error) { msg.textContent = ERR[res.error] || res.error; msg.hidden = false; return; }
       me = res; lastStatus = new Map((res.orders || []).map((o) => [o.id, o.status]));
-      view = 'home'; renderHome(); startPolling();
+      view = 'home'; renderHome(); startPolling(); ensurePush();
     } catch (err) { msg.textContent = errText(err); msg.hidden = false; }
     finally { go.disabled = false; }
   } },
@@ -219,7 +247,8 @@ function renderHome() {
       h('div', { class: 'muted small' }, [p.code, p.department_ar, p.company].filter(Boolean).join(' · '), ' · ',
         h('button', { class: 'self-link', onclick: () => renderRegister() }, 'مش أنا؟'))),
     balanceCard(p),
-    needPerm ? h('button', { class: 'btn', onclick: async () => { await Notification.requestPermission(); renderHome(); } }, '🔔 فعّل الإشعارات علشان يوصلك لما طلبك يتجهز') : null,
+    needPerm ? h('button', { class: 'btn', onclick: async () => { await askNotifications(); renderHome(); } }, '🔔 فعّل الإشعارات علشان يوصلك لما طلبك يتجهز') : null,
+    'Notification' in window && Notification.permission === 'denied' ? h('div', { class: 'alert warn small' }, 'الإشعارات مقفولة للتطبيق ده. افتحها من إعدادات الموبايل ← التطبيقات ← الإشعارات.') : null,
     open.length ? [h('h2', { style: 'margin:4px 0 0' }, 'طلباتك دلوقتي'), open.map(orderCard)] : null,
     done.length ? [h('h2', { style: 'margin:4px 0 0;font-size:16px' }, 'النهارده'), done.map(orderCard)] : null,
     !open.length && !done.length ? h('div', { class: 'self-card self-empty' }, 'مفيش طلبات النهارده.') : null),
@@ -311,7 +340,7 @@ function renderCart() {
       cart.length = 0; notes = ''; key = uuid();
       toast(`اتبعت طلبك ${res.order_no}. هيوصلك إشعار لما يبدأ يتجهز.`, 'ok');
       navigator.vibrate?.(30);
-      if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+      if ('Notification' in window && Notification.permission === 'default') askNotifications().catch(() => {});
       view = 'home'; await refresh(); lastStatus.set(res.order_id, 'NEW');
     } catch (e) { toast(errText(e), 'bad'); }
     finally { go.disabled = false; }
@@ -328,4 +357,4 @@ function renderCart() {
     h('div', { class: 'self-bar' }, go));
 }
 
-boot().then(() => { if (me) startPolling(); });
+boot().then(() => { if (me) { startPolling(); ensurePush(); } });
