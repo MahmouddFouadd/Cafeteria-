@@ -33,3 +33,6 @@
 .self-order.done .self-order-head span:first-child { min-width: 0; }
 .self-chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: var(--ok-soft); color: var(--ok); white-space: nowrap; }
 .self-chip.CANCELLED { background: var(--bad-soft, #FBEAEA); color: var(--bad); }
+.pos-card.out { opacity: .6; }
+.out-tag { display: inline-block; margin-inline-start: 8px; font-size: 12px; font-weight: 700; color: var(--bad); }
+.pos-var.off { background: #EEE; color: var(--muted); cursor: not-allowed; }
