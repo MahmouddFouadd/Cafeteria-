@@ -846,3 +846,4 @@ button, a, .pos-var, .chip, .tab, .pick-item { touch-action: manipulation; }
 .q-self { display: flex; gap: 6px; flex-wrap: wrap; }
 .badge.self { background: #EAF2FF; color: #1F4E9A; }
 tr.row-flag td { background: #FFF6E5; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

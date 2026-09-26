@@ -28,3 +28,8 @@
 .self-sheet .cart-line { grid-template-columns: 1fr auto auto; }
 .self-empty { text-align: center; padding: 18px; color: var(--muted); }
 .self-link { background: none; border: 0; color: var(--primary); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
+.self-order-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.self-order.done { padding: 12px 14px; gap: 6px; border-inline-start-color: var(--line); }
+.self-order.done .self-order-head span:first-child { min-width: 0; }
+.self-chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: var(--ok-soft); color: var(--ok); white-space: nowrap; }
+.self-chip.CANCELLED { background: var(--bad-soft, #FBEAEA); color: var(--bad); }
