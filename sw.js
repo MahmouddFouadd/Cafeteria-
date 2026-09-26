@@ -56,3 +56,15 @@ self.addEventListener('fetch', (e) => {
     return refresh;
   })());
 });
+
+// Tapping an order notification opens (or focuses) the ordering app
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const target = new URL((e.notification.data && e.notification.data.url) || 'order.html', self.registration.scope).href;
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const w = wins.find((c) => c.url.startsWith(target.split('#')[0]));
+    if (w) return w.focus();
+    return self.clients.openWindow(target);
+  })());
+});
