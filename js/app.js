@@ -6,6 +6,7 @@ import { rpc, errText } from './api.js';
 import { loadRefs, loadSettings, usePrep, invalidate } from './store.js';
 import { session, canAny } from './session.js';
 import { deviceUsers, rememberDeviceUser, forgetDeviceUser, pinPassword } from './pin.js';
+import { ensureStaffPush, startNewOrderWatch, stopNewOrderWatch } from './staffnotify.js';
 
 // Pages load on demand (smaller first load); allowed ones are prefetched after sign-in.
 const page = (file, fn, ...args) => {
@@ -67,7 +68,7 @@ async function boot() {
   applyDir();
   window.addEventListener('online', netBanner);
   window.addEventListener('offline', netBanner);
-  sb.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT') { session.profile = null; renderLogin(); } });
+  sb.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT') { stopNewOrderWatch(); session.profile = null; renderLogin(); } });
 
   if (CONFIG.SUPABASE_URL.includes('YOUR-PROJECT')) {
     put(app, h('div', { class: 'content' }, h('div', { class: 'alert bad' }, t('config_missing'))));
@@ -378,6 +379,8 @@ function renderShell() {
   put(app, shell);
   shellEls = { title, content, nav, tabs };
   startIdleWatch();
+  startNewOrderWatch();
+  ensureStaffPush();
   route();
   const warm = () => Object.entries(ROUTES).filter(([k]) => allowed(k)).forEach(([, r]) => r.render.prefetch?.().catch(() => {}));
   (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(warm);

@@ -1,5 +1,10 @@
 // Arabic / English UI text. Add a key to both languages.
 const ar = {
+  "staff_notif_hint": "فعّل الإشعارات علشان يوصلك تنبيه أول ما طلب ييجي من تطبيق الموظفين، حتى لو السيستم مقفول.",
+  "staff_notif_enable": "فعّل الإشعارات",
+  "staff_notif_on": "تمام، هيوصلك إشعار مع كل طلب جديد.",
+  "staff_notif_open_only": "التنبيه هيشتغل والسيستم مفتوح بس.",
+  "staff_notif_denied": "الإشعارات مقفولة للجهاز ده. افتحها من إعدادات المتصفح أو الموبايل علشان يوصلك تنبيه الطلبات الجديدة.",
   "err.SELF_PREP_FIRST": "طلبات التطبيق لازم تعدي على \"ابدأ التحضير\" الأول علشان الموظف يوصله إشعار.",
   "err.SELF_CASH_PENDING": "الطلب ده كاش عند الاستلام: استخدم زرار \"استلمت ... كاش وسلّمت\".",
   "self_cash_missing_title": "كاش لسه ماتسجلش",
@@ -211,6 +216,11 @@ const ar = {
 };
 
 const en = {
+  "staff_notif_hint": "Turn on notifications to be alerted as soon as an order arrives from the employee app, even when the system is closed.",
+  "staff_notif_enable": "Enable notifications",
+  "staff_notif_on": "Done — you'll be notified of every new order.",
+  "staff_notif_open_only": "Alerts will work while the system is open.",
+  "staff_notif_denied": "Notifications are blocked on this device. Allow them in the browser/phone settings to get new-order alerts.",
   "err.SELF_PREP_FIRST": "App orders must go through \"Start preparing\" first so the employee is notified.",
   "err.SELF_CASH_PENDING": "Cash on delivery: use the \"Received ... cash & served\" button.",
   "self_cash_missing_title": "Cash not recorded",
