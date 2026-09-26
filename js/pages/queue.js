@@ -1,10 +1,11 @@
-import { h, put, btn, toastError, busy, fmtDateTime, fmtMoney } from '../ui.js';
+import { h, put, btn, toast, toastError, busy, fmtDateTime, fmtMoney } from '../ui.js';
 import { t } from '../i18n.js';
 import { sb } from '../supabase.js';
 import { q, rpc } from '../api.js';
 import { todayISO } from '../ui.js';
 import { lineName, addonsText, customerLabel, openOrder } from '../sales.js';
 import { usePrep } from '../store.js';
+import { staffPushState, askStaffNotifications } from '../staffnotify.js';
 
 const COLS = ['NEW', 'PREPARING', 'READY'];   // all still-open orders
 const NEXT = { NEW: 'PREPARING', PREPARING: 'READY', READY: 'SERVED' };
@@ -41,7 +42,16 @@ export async function queuePage(root) {
   }
 
   const stamp = h('span', { class: 'muted small' });
-  root.append(h('div', { class: 'toolbar' }, h('div', { class: 'grow' }, stamp), btn(t('refresh'), () => load())), board, missing);
+  const notifBox = h('div');
+  const drawNotif = () => {
+    const st = staffPushState();
+    put(notifBox, st === 'default'
+      ? h('div', { class: 'alert info small row', style: { justifyContent: 'space-between' } }, h('span', null, t('staff_notif_hint')),
+          btn('🔔 ' + t('staff_notif_enable'), async () => { const ok = await askStaffNotifications(); toast(t(ok ? 'staff_notif_on' : 'staff_notif_open_only'), 'ok'); drawNotif(); }, 'sm primary'))
+      : st === 'denied' ? h('div', { class: 'alert warn small' }, t('staff_notif_denied')) : null);
+  };
+  drawNotif();
+  root.append(notifBox, h('div', { class: 'toolbar' }, h('div', { class: 'grow' }, stamp), btn(t('refresh'), () => load())), board, missing);
 
   let known = null;
   async function load() {
