@@ -189,14 +189,23 @@ function balanceCard(p) {
 function orderCard(o) {
   const s = STATUS[o.status] || { label: o.status, step: 0 };
   const open = ['NEW', 'PREPARING', 'READY'].includes(o.status);
+  const time = new Date(o.created_at).toLocaleTimeString('ar-EG-u-nu-latn', { hour: 'numeric', minute: '2-digit', timeZone: 'Africa/Cairo' });
+  const payLabel = o.pay_request === 'CASH' ? 'كاش عند الاستلام' : 'على الحساب';
+  const paid = o.payment_status === 'PAID';
+  if (!open) {
+    // finished orders: one compact card
+    return h('article', { class: 'self-card self-order done ' + o.status },
+      h('div', { class: 'self-order-head' }, h('b', null, o.order_no), h('span', { class: 'muted small' }, time)),
+      h('div', { class: 'self-order-head' }, h('span', null, o.items), h('span', { class: 'self-chip ' + o.status }, s.label)),
+      h('div', { class: 'muted small' }, `${money(o.total)} · ${payLabel}${o.status === 'SERVED' && !paid ? ' · لسه عليك' : ''}`));
+  }
   return h('article', { class: 'self-card self-order ' + o.status },
-    h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', null, o.order_no), h('span', { class: 'muted small' },
-      new Date(o.created_at).toLocaleTimeString('ar-EG-u-nu-latn', { hour: 'numeric', minute: '2-digit', timeZone: 'Africa/Cairo' }))),
+    h('div', { class: 'self-order-head' }, h('b', null, o.order_no), h('span', { class: 'muted small' }, time)),
     h('div', null, o.items),
-    open ? h('div', { class: 'self-steps' }, [1, 2, 3].map((i) => h('span', { class: i <= s.step ? 'on' : '' }))) : null,
+    h('div', { class: 'self-steps' }, [1, 2, 3].map((i) => h('span', { class: i <= s.step ? 'on' : '' }))),
     h('div', { class: 'self-status' }, s.label),
     o.status === 'NEW' && o.ahead != null ? h('div', { class: 'self-ahead muted' }, Number(o.ahead) === 0 ? 'إنت الجاي 👌' : `قبلك ${o.ahead} ${Number(o.ahead) === 1 ? 'طلب' : 'طلبات'}`) : null,
-    h('div', { class: 'muted small' }, `${money(o.total)} · ${o.pay_request === 'CASH' ? 'كاش عند الاستلام' : 'على الحساب'}`));
+    h('div', { class: 'muted small' }, `${money(o.total)} · ${payLabel}`));
 }
 
 function renderHome() {

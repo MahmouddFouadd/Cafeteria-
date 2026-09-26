@@ -1,5 +1,10 @@
 // Arabic / English UI text. Add a key to both languages.
 const ar = {
+  "err.SELF_PREP_FIRST": "طلبات التطبيق لازم تعدي على \"ابدأ التحضير\" الأول علشان الموظف يوصله إشعار.",
+  "err.SELF_CASH_PENDING": "الطلب ده كاش عند الاستلام: استخدم زرار \"استلمت ... كاش وسلّمت\".",
+  "self_cash_missing_title": "كاش لسه ماتسجلش",
+  "self_cash_missing_hint": "طلبات من التطبيق اتسلمت قبل ما كاشها يتسجل. سجّله هنا لو الموظف دفع.",
+  "self_cash_collect": "استلمت {v} كاش",
   "nav.devices": "أجهزة الموظفين",
   "self_badge": "📱 من التطبيق",
   "self_pays_cash": "هيدفع كاش",
@@ -206,6 +211,11 @@ const ar = {
 };
 
 const en = {
+  "err.SELF_PREP_FIRST": "App orders must go through \"Start preparing\" first so the employee is notified.",
+  "err.SELF_CASH_PENDING": "Cash on delivery: use the \"Received ... cash & served\" button.",
+  "self_cash_missing_title": "Cash not recorded",
+  "self_cash_missing_hint": "App orders served before their cash was recorded. Record it here if the employee paid.",
+  "self_cash_collect": "Received {v} cash",
   "nav.devices": "Employee phones",
   "self_badge": "📱 From the app",
   "self_pays_cash": "Pays cash",
