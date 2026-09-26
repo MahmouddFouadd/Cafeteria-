@@ -50,6 +50,7 @@ const ERR = {
 const errText = (e) => {
   const m = String(e?.message || e || '');
   const code = m.split(':')[0].trim();
+  if (code === 'SELF_OUT_OF_STOCK') return `للأسف ${m.slice(m.indexOf(':') + 1).trim() || 'المشروب ده'} غير متوفر الآن.`;
   if (ERR[code]) return ERR[code];
   if (/Failed to fetch|NetworkError/i.test(m)) return 'مفيش إنترنت. جرّب تاني.';
   if (/anonymous/i.test(m)) return 'التطبيق مش متفعّل لسه. كلّم مدير النظام.';
@@ -261,7 +262,7 @@ function renderHome() {
 async function openMenu() {
   view = 'menu';
   put(app, topBar(), h('main', { class: 'self-wrap' }, h('div', { class: 'page-loading' }, h('span'), h('span'), h('span'))));
-  try { menu = menu || await rpc('self_menu'); } catch (e) { toast(errText(e), 'bad'); return renderHome(); }
+  try { menu = await rpc('self_menu'); } catch (e) { toast(errText(e), 'bad'); return renderHome(); }   // fresh each time: availability changes
   renderMenu();
 }
 
@@ -273,13 +274,18 @@ function renderMenu() {
   view = 'menu';
   const cats = menu.categories.filter((c) => menu.products.some((p) => p.category_id === c.id));
   const grid = h('div', { class: 'pos-grid' });
-  const drawGrid = () => put(grid, menu.products.filter((p) => !cat || p.category_id === cat).map((p) =>
-    h('div', { class: 'pos-card' }, h('div', { class: 'pos-name' }, p.name_ar),
-      h('div', { class: 'pos-variants' }, p.variants.map((v) => h('button', { type: 'button', class: 'pos-var', onclick: () => {
+  const drawGrid = () => put(grid, menu.products.filter((p) => !cat || p.category_id === cat).map((p) => {
+    const none = p.variants.every((v) => v.available === false);
+    return h('div', { class: 'pos-card' + (none ? ' out' : '') }, h('div', { class: 'pos-name' }, p.name_ar, none ? h('span', { class: 'out-tag' }, 'غير متوفر الآن') : null),
+      h('div', { class: 'pos-variants' }, p.variants.map((v) => v.available === false
+        ? h('button', { type: 'button', class: 'pos-var off', disabled: true },
+            p.variants.length > 1 || v.name_en !== 'Regular' ? h('span', null, v.name_ar) : null, h('b', null, 'غير متوفر'))
+        : h('button', { type: 'button', class: 'pos-var', onclick: () => {
         const same = cart.find((l) => l.variant.id === v.id && !l.addons.length && !l.notes);
         if (same) same.qty += 1; else cart.push({ product: p, variant: v, qty: 1, addons: [], notes: '' });
         navigator.vibrate?.(10); renderMenu();
-      } }, p.variants.length > 1 || v.name_en !== 'Regular' ? h('span', null, v.name_ar) : null, h('b', null, money(v.price))))))));
+      } }, p.variants.length > 1 || v.name_en !== 'Regular' ? h('span', null, v.name_ar) : null, h('b', null, money(v.price))))));
+  }));
   const chips = h('div', { class: 'chips scroll' }, [{ id: '', name_ar: 'الكل' }, ...cats].map((c) =>
     h('button', { type: 'button', class: 'chip' + (cat === c.id ? ' on' : ''), onclick: () => { cat = c.id; renderMenu(); } }, c.name_ar)));
   drawGrid();
@@ -342,7 +348,17 @@ function renderCart() {
       navigator.vibrate?.(30);
       if ('Notification' in window && Notification.permission === 'default') askNotifications().catch(() => {});
       view = 'home'; await refresh(); lastStatus.set(res.order_id, 'NEW');
-    } catch (e) { toast(errText(e), 'bad'); }
+    } catch (e) {
+      toast(errText(e), 'bad');
+      if (String(e?.message || '').startsWith('SELF_OUT_OF_STOCK')) {
+        try {
+          menu = await rpc('self_menu');
+          const ok = new Set(menu.products.flatMap((p) => p.variants.filter((v) => v.available !== false).map((v) => v.id)));
+          for (let i = cart.length - 1; i >= 0; i--) if (!ok.has(cart[i].variant.id)) cart.splice(i, 1);
+          cart.length ? renderCart() : renderMenu();
+        } catch (_) { /* keep the cart */ }
+      }
+    }
     finally { go.disabled = false; }
   } }, `تأكيد الطلب — ${money(total())}`);
   put(app, topBar(), h('main', { class: 'self-wrap self-sheet' },
