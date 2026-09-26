@@ -1,5 +1,11 @@
 // Arabic / English UI text. Add a key to both languages.
 const ar = {
+  "set_stock_title": "\"غير متوفر\" في تطبيق الموظفين",
+  "set_stock_desc": "التطبيق يقفل المشروب لما خاماته تخلص من المخزنين. شغّله بعد ما تدخلوا الرصيد الحقيقي (رصيد افتتاحي أو جرد)، وإلا كل المشاريب هتظهر غير متوفرة.",
+  "set_stock_on": "شغال",
+  "set_stock_on_hint": "المشروب اللي خاماته خلصت يظهر \"غير متوفر الآن\" ومينفعش يتطلب.",
+  "set_stock_off": "مقفول",
+  "set_stock_off_hint": "كل المشاريب متاحة في التطبيق مهما كان المخزون.",
   "staff_notif_hint": "فعّل الإشعارات علشان يوصلك تنبيه أول ما طلب ييجي من تطبيق الموظفين، حتى لو السيستم مقفول.",
   "staff_notif_enable": "فعّل الإشعارات",
   "staff_notif_on": "تمام، هيوصلك إشعار مع كل طلب جديد.",
@@ -216,6 +222,12 @@ const ar = {
 };
 
 const en = {
+  "set_stock_title": "\"Not available\" in the employee app",
+  "set_stock_desc": "The app blocks a drink when its ingredients run out in both stores. Turn on after real stock is entered, or every drink will show as unavailable.",
+  "set_stock_on": "On",
+  "set_stock_on_hint": "Drinks whose ingredients ran out show \"not available\".",
+  "set_stock_off": "Off",
+  "set_stock_off_hint": "All drinks are orderable regardless of stock.",
   "staff_notif_hint": "Turn on notifications to be alerted as soon as an order arrives from the employee app, even when the system is closed.",
   "staff_notif_enable": "Enable notifications",
   "staff_notif_on": "Done — you'll be notified of every new order.",

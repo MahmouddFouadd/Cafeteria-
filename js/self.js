@@ -276,7 +276,7 @@ function renderMenu() {
   const grid = h('div', { class: 'pos-grid' });
   const drawGrid = () => put(grid, menu.products.filter((p) => !cat || p.category_id === cat).map((p) => {
     const none = p.variants.every((v) => v.available === false);
-    return h('div', { class: 'pos-card' + (none ? ' out' : '') }, h('div', { class: 'pos-name' }, p.name_ar, none ? h('span', { class: 'out-tag' }, 'غير متوفر الآن') : null),
+    return h('div', { class: 'pos-card' + (none ? ' out' : '') }, h('div', { class: 'pos-name' }, h('span', null, p.name_ar), none ? h('span', { class: 'out-tag' }, 'غير متوفر الآن') : null),
       h('div', { class: 'pos-variants' }, p.variants.map((v) => v.available === false
         ? h('button', { type: 'button', class: 'pos-var off', disabled: true },
             p.variants.length > 1 || v.name_en !== 'Regular' ? h('span', null, v.name_ar) : null, h('b', null, 'غير متوفر'))
