@@ -43,6 +43,7 @@ const ROUTES = {
   'materials':     { title: 'nav.materials', perms: ['inventory.view', 'inventory.materials'], render: page('materials', 'materialsPage') },
   'catalog':       { title: 'nav.catalog',   perms: ['catalog.manage', 'recipes.manage', 'prices.change'], render: page('catalog', 'catalogPage') },
   'addons':        { title: 'nav.addons',    perms: ['catalog.manage'],       render: page('addons', 'addonsPage') },
+  'devices':       { title: 'nav.devices',   perms: ['customers.manage', 'users.manage'], render: page('devices', 'devicesPage') },
   'settings':      { title: 'nav.settings',  perms: ['settings.manage'],      render: page('settings', 'settingsPage') },
   'master':        { title: 'nav.master',    perms: ['inventory.materials', 'catalog.manage'], render: page('master', 'masterPage') },
 };
@@ -52,7 +53,7 @@ const NAV = [
   { title: 'nav.g.sales',      items: ['pos', 'queue', 'reception', 'orders', 'customers', 'closing'] },
   { title: 'nav.g.inventory',  items: ['inventory'] },
   { title: 'nav.g.catalog',    items: ['catalog', 'addons'] },
-  { title: 'nav.g.settings',   items: ['me', 'settings', 'master'] },
+  { title: 'nav.g.settings',   items: ['me', 'devices', 'settings', 'master'] },
 ];
 
 // Where each role starts: the buffet records, reception collects, the store keeps stock
