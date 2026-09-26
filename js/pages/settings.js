@@ -103,7 +103,20 @@ export async function settingsPage(root) {
         h('span', { class: 'muted small' }, t(v ? 'set_self_on_hint' : 'set_self_off_hint'))))));
   }
 
-  drawFlow(); drawIdle(); drawServe(); drawCash(); drawSelf();
+  const stockBox = h('div', { class: 'choice-list' });
+  function drawStock() {
+    const on = setting('self_stock_check', false) === true;
+    put(stockBox, [true, false].map((v) => h('button', {
+      type: 'button', class: 'choice' + (on === v ? ' on' : ''), onclick: async () => {
+        if (on === v) return;
+        try { await saveSetting('self_stock_check', v); toast(t('saved'), 'ok'); drawStock(); } catch (e) { toastError(e); }
+      },
+    }, h('span', { class: 'choice-dot', 'aria-hidden': 'true' }),
+      h('span', { class: 'choice-body' }, h('b', null, t(v ? 'set_stock_on' : 'set_stock_off')),
+        h('span', { class: 'muted small' }, t(v ? 'set_stock_on_hint' : 'set_stock_off_hint'))))));
+  }
+
+  drawFlow(); drawIdle(); drawServe(); drawCash(); drawSelf(); drawStock();
   root.append(
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('backup_title'))),
@@ -124,6 +137,9 @@ export async function settingsPage(root) {
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('set_self_title'))),
       h('p', { class: 'muted small' }, t('set_self_desc')), selfBox),
+    h('section', { class: 'panel' },
+      h('div', { class: 'panel-head' }, h('h2', null, t('set_stock_title'))),
+      h('p', { class: 'muted small' }, t('set_stock_desc')), stockBox),
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('set_idle_title'))),
       h('p', { class: 'muted small' }, t('set_idle_desc')),
