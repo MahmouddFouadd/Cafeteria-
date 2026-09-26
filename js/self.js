@@ -173,31 +173,34 @@ const logos = () => h('div', { class: 'logos' },
 
 function renderRegister(prefill = {}) {
   view = 'register';
-  const name = h('input', { class: 'input', autocomplete: 'name', value: prefill.name || '', placeholder: 'اسمك زي ما هو متسجل في الشركة' });
-  const code = h('input', { class: 'input num', inputmode: 'numeric', dir: 'ltr', value: prefill.code || '', placeholder: 'كود الموظف' });
+  // The employee code is enough; the name comes from the company records
+  const code = h('input', { class: 'input num', inputmode: 'numeric', dir: 'ltr', value: prefill.code || '', placeholder: 'كود الموظف', autocomplete: 'off' });
   code.addEventListener('input', () => { code.value = latin(code.value).trim(); });
   const msg = h('div', { class: 'alert bad', hidden: true });
   const go = h('button', { class: 'btn primary lg', type: 'submit' }, 'دخول');
   const form = h('form', { class: 'login-form', onsubmit: async (e) => {
     e.preventDefault(); msg.hidden = true;
-    if (!name.value.trim() || !code.value.trim()) { msg.textContent = ERR.SELF_CODE_NAME_REQUIRED; msg.hidden = false; return; }
+    if (!code.value.trim()) { msg.textContent = 'اكتب كود الموظف.'; msg.hidden = false; code.focus(); return; }
     go.disabled = true;
     try {
-      const res = await rpc('self_register', { p_code: code.value.trim(), p_name: name.value.trim(), p_user_agent: navigator.userAgent.slice(0, 300) });
-      if (res?.error) { msg.textContent = ERR[res.error] || res.error; msg.hidden = false; return; }
+      const res = await rpc('self_register', { p_code: code.value.trim(), p_name: '', p_user_agent: navigator.userAgent.slice(0, 300) });
+      if (res?.error) {
+        msg.textContent = res.error === 'SELF_NOT_MATCHED' ? 'الكود ده مش متسجل أو الحساب موقوف. اتأكد من الكود، أو كلّم الريسبشن.' : (ERR[res.error] || res.error);
+        msg.hidden = false; return;
+      }
       me = res; lastStatus = new Map((res.orders || []).map((o) => [o.id, o.status]));
+      toast(`أهلًا ${res.person.full_name}`, 'ok');
       view = 'home'; renderHome(); startPolling(); ensurePush();
     } catch (err) { msg.textContent = errText(err); msg.hidden = false; }
     finally { go.disabled = false; }
   } },
-    h('label', { class: 'field' }, h('span', { class: 'label' }, 'اسمك'), name),
     h('label', { class: 'field' }, h('span', { class: 'label' }, 'كود الموظف'), code),
     msg, go);
   put(app, h('div', { class: 'self-reg' }, logos(),
-    h('div', null, h('h1', { style: 'margin:0' }, 'طلبات البوفيه'), h('p', { class: 'muted' }, 'اكتب اسمك وكودك مرة واحدة، والموبايل ده هيتسجل باسمك.')),
+    h('div', null, h('h1', { style: 'margin:0' }, 'طلبات البوفيه'), h('p', { class: 'muted' }, 'اكتب كودك مرة واحدة، والموبايل ده هيتسجل باسمك.')),
     form,
-    h('p', { class: 'muted small' }, 'الموبايل بيتسجل باسمك ومعاه بيانات الجهاز والـIP. لو اتسجل عليه اسم تاني، الإدارة بتعرف.')));
-  setTimeout(() => name.focus(), 60);
+    h('p', { class: 'muted small' }, 'الموبايل بيتسجل على الكود ده ومعاه بيانات الجهاز والـIP. لو اتسجل عليه كود حد تاني، الإدارة بتعرف.')));
+  setTimeout(() => code.focus(), 60);
 }
 
 function topBar() {
