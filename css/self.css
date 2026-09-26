@@ -1,0 +1,30 @@
+/* Employee ordering app (order.html) */
+.self-app { background: var(--bg, #F3F2F7); }
+.self-wrap { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(96px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 14px; }
+.self-top { display: flex; align-items: center; gap: 12px; padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
+.self-top img { height: 26px; }
+.self-top .grow { flex: 1; }
+.self-card { background: var(--surface); border-radius: 16px; padding: 16px; border: 1px solid var(--line); display: grid; gap: 10px; }
+.self-hello h1 { margin: 0; font-size: 20px; }
+.self-balance { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.self-balance b { font-size: 26px; }
+.self-balance.due b { color: var(--bad); }
+.self-balance.pos b { color: var(--ok); }
+.self-order { border-inline-start: 5px solid var(--line-strong); }
+.self-order.NEW { border-inline-start-color: var(--primary); }
+.self-order.PREPARING { border-inline-start-color: var(--warn); }
+.self-order.READY { border-inline-start-color: var(--ok); }
+.self-status { font-weight: 700; font-size: 16px; }
+.self-ahead { font-size: 15px; }
+.self-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.self-steps span { height: 6px; border-radius: 99px; background: var(--line); }
+.self-steps span.on { background: var(--primary); }
+.self-bar { position: fixed; inset-inline: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 30; }
+.self-bar .btn { width: 100%; min-height: 54px; font-size: 17px; border-radius: 14px; box-shadow: 0 10px 30px rgba(43,33,64,.3); }
+.self-reg { max-width: 420px; margin: 0 auto; padding: 24px 18px; display: grid; gap: 16px; }
+.self-reg .logos { display: flex; justify-content: center; gap: 18px; align-items: center; }
+.self-reg .logos img { height: 34px; }
+.self-reg .logos img.mig { height: 46px; }
+.self-sheet .cart-line { grid-template-columns: 1fr auto auto; }
+.self-empty { text-align: center; padding: 18px; color: var(--muted); }
+.self-link { background: none; border: 0; color: var(--primary); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }

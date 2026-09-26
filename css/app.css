@@ -841,3 +841,8 @@ button, a, .pos-var, .chip, .tab, .pick-item { touch-action: manipulation; }
 .backup-progress { display: grid; gap: 6px; margin-top: 10px; }
 .bp-bar { height: 10px; border-radius: 99px; background: var(--primary-soft); overflow: hidden; }
 .bp-bar span { display: block; height: 100%; width: 0; background: var(--primary); transition: width .2s; }
+
+/* ---------- App orders in the queue + devices ---------- */
+.q-self { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge.self { background: #EAF2FF; color: #1F4E9A; }
+tr.row-flag td { background: #FFF6E5; }
