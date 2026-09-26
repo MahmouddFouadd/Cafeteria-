@@ -90,7 +90,20 @@ export async function settingsPage(root) {
   const btnJ = btn('⬇ ' + t('backup_json'), run(backupJson));
   drawLast();
 
-  drawFlow(); drawIdle(); drawServe(); drawCash();
+  const selfBox = h('div', { class: 'choice-list' });
+  function drawSelf() {
+    const on = setting('self_order_enabled', true) !== false;
+    put(selfBox, [true, false].map((v) => h('button', {
+      type: 'button', class: 'choice' + (on === v ? ' on' : ''), onclick: async () => {
+        if (on === v) return;
+        try { await saveSetting('self_order_enabled', v); toast(t('saved'), 'ok'); drawSelf(); } catch (e) { toastError(e); }
+      },
+    }, h('span', { class: 'choice-dot', 'aria-hidden': 'true' }),
+      h('span', { class: 'choice-body' }, h('b', null, t(v ? 'set_self_on' : 'set_self_off')),
+        h('span', { class: 'muted small' }, t(v ? 'set_self_on_hint' : 'set_self_off_hint'))))));
+  }
+
+  drawFlow(); drawIdle(); drawServe(); drawCash(); drawSelf();
   root.append(
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('backup_title'))),
@@ -108,6 +121,9 @@ export async function settingsPage(root) {
       h('div', { class: 'choice-list' }, serveBox)),
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('set_bcash_title'))), cashBox),
+    h('section', { class: 'panel' },
+      h('div', { class: 'panel-head' }, h('h2', null, t('set_self_title'))),
+      h('p', { class: 'muted small' }, t('set_self_desc')), selfBox),
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' }, h('h2', null, t('set_idle_title'))),
       h('p', { class: 'muted small' }, t('set_idle_desc')),

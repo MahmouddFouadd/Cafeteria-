@@ -1,4 +1,4 @@
-import { h, put, btn, toastError, busy, fmtDateTime } from '../ui.js';
+import { h, put, btn, toastError, busy, fmtDateTime, fmtMoney } from '../ui.js';
 import { t } from '../i18n.js';
 import { sb } from '../supabase.js';
 import { q, rpc } from '../api.js';
@@ -57,14 +57,26 @@ export async function queuePage(root) {
   }
 
   function card(o, ls) {
-    const next = usePrep() ? NEXT[o.fulfillment_status] : 'SERVED';
-    const b = btn(usePrep() ? t('to.' + next) : '✓ ' + t('mark_served'), () => busy(b, async () => {
-      try { await rpc('set_order_status', { p_order_id: o.id, p_status: next }); await load(); } catch (e) { toastError(e); }
-    }), next === 'SERVED' && usePrep() ? '' : 'primary lg');
+    const self = o.source === 'SELF';
+    let next = usePrep() ? NEXT[o.fulfillment_status] : 'SERVED';
+    // app orders always pass through "preparing" so the employee is told when theirs starts
+    if (self && !usePrep() && o.fulfillment_status === 'NEW') next = 'PREPARING';
+    const cashOnDelivery = self && o.pay_request === 'CASH' && !o.cash_collected_at && next === 'SERVED';
+    const label = cashOnDelivery ? t('self_cash_serve', { v: fmtMoney(o.total) })
+      : (usePrep() || next === 'PREPARING') ? t('to.' + next) : '✓ ' + t('mark_served');
+    const b = btn(label, () => busy(b, async () => {
+      try {
+        if (cashOnDelivery) await rpc('self_cash_served', { p_order_id: o.id });
+        else await rpc('set_order_status', { p_order_id: o.id, p_status: next });
+        await load();
+      } catch (e) { toastError(e); }
+    }), next === 'SERVED' && usePrep() && !cashOnDelivery ? '' : 'primary lg');
     return h('article', { class: 'q-card' },
       h('header', null, h('b', { class: 'q-no', onclick: () => openOrder(o.id, { onChange: load }) }, o.order_no),
         h('span', { class: 'muted small' }, new Date(o.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }))),
       h('div', { class: 'q-who' }, customerLabel(o)),
+      self ? h('div', { class: 'q-self' }, h('span', { class: 'badge self' }, t('self_badge')),
+        h('span', { class: 'badge ' + (o.pay_request === 'CASH' ? 'warn' : '') }, o.pay_request === 'CASH' ? t('self_pays_cash') : t('self_on_account'))) : null,
       h('ul', null, ls.map((l) => h('li', null, h('b', null, `${l.qty} × `), lineName(l),
         l.addons?.length ? h('div', { class: 'q-add' }, '+ ' + addonsText(l)) : null,
         l.notes ? h('div', { class: 'q-add' }, l.notes) : null))),
