@@ -68,3 +68,14 @@ self.addEventListener('notificationclick', (e) => {
     return self.clients.openWindow(target);
   })());
 });
+
+// Push from the server (Edge Function send-push): show it even when the app is closed
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: 'البوفيه', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'البوفيه', {
+    body: d.body || '', tag: d.tag, renotify: true, dir: 'rtl', lang: 'ar',
+    icon: 'assets/img/icon-192.png', badge: 'assets/img/icon-192.png', vibrate: [200, 100, 200],
+    data: { url: d.url || 'order.html' },
+  }));
+});
