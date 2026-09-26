@@ -68,7 +68,7 @@ export function startNewOrderWatch() {
         toast(text, 'ok', 8000);
         if (!pushOn && document.hidden && Notification?.permission === 'granted') {
           const reg = await navigator.serviceWorker?.ready;
-          reg?.showNotification('طلب جديد من التطبيق 📱', { body: text, tag: 'new-' + r.id, data: { url: 'index.html#/queue' }, icon: 'assets/img/icon-192.png' });
+          reg?.showNotification('طلب جديد من التطبيق 📱', { body: text, tag: 'new-' + r.id, data: { url: 'index.html#/queue' }, icon: 'assets/img/icon-192.png', badge: 'assets/img/badge-96.png' });
         }
       }
       if (location.hash.startsWith('#/queue')) window.dispatchEvent(new Event('hashchange'));   // refresh the list

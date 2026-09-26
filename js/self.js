@@ -110,7 +110,7 @@ async function notify(title, body, tag) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   try {
     const reg = await navigator.serviceWorker?.ready;
-    if (reg) await reg.showNotification(title, { body, tag, renotify: true, icon: 'assets/img/icon-192.png', badge: 'assets/img/icon-192.png', vibrate: [200, 100, 200], data: { url: 'order.html' } });
+    if (reg) await reg.showNotification(title, { body, tag, renotify: true, icon: 'assets/img/icon-192.png', badge: 'assets/img/badge-96.png', vibrate: [200, 100, 200], data: { url: 'order.html' } });
     else new Notification(title, { body, tag });
   } catch (_) { /* optional */ }
 }
