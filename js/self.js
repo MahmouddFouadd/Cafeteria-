@@ -173,7 +173,7 @@ const logos = () => h('div', { class: 'logos' },
 
 function renderRegister(prefill = {}) {
   view = 'register';
-  const name = h('input', { class: 'input', autocomplete: 'name', value: prefill.name || '', placeholder: 'مثلًا: أحمد فؤاد' });
+  const name = h('input', { class: 'input', autocomplete: 'name', value: prefill.name || '', placeholder: 'اسمك زي ما هو متسجل في الشركة' });
   const code = h('input', { class: 'input num', inputmode: 'numeric', dir: 'ltr', value: prefill.code || '', placeholder: 'كود الموظف' });
   code.addEventListener('input', () => { code.value = latin(code.value).trim(); });
   const msg = h('div', { class: 'alert bad', hidden: true });
